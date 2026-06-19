@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>패밀리 캠핑 짐 정리 3D</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#0f1520;color:#e2e8f0;font-family:'Malgun Gothic',sans-serif}
+body{display:flex}
+#sidebar{width:290px;min-width:290px;height:100vh;background:#1a2235;border-right:2px solid #2d3f5c;display:flex;flex-direction:column;flex-shrink:0}
+#sb{flex:1;overflow-y:auto;padding-bottom:16px}
+#sb::-webkit-scrollbar{width:3px}#sb::-webkit-scrollbar-thumb{background:#2d3f5c;border-radius:2px}
+.sh{padding:11px 14px 8px;background:#131c2e;border-bottom:1px solid #263347;flex-shrink:0}
+.sh h1{font-size:13px;font-weight:700;color:#60a5fa}.sh p{font-size:10px;color:#475569;margin-top:1px}
+.ss{padding:9px 13px;border-bottom:1px solid #1e2d42}
+.sst{font-size:9px;font-weight:700;letter-spacing:1px;color:#3d5070;text-transform:uppercase;margin-bottom:7px}
+.vg{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.vb{background:#1a2d48;border:1px solid #263d58;border-radius:5px;padding:5px 7px;cursor:pointer;text-align:left;transition:all .15s}
+.vb:hover{border-color:#60a5fa55}.vb.on{border-color:#60a5fa;background:#163258}
+.vb .vi{font-size:13px;display:block;margin-bottom:2px}.vb .vn{font-size:10px;font-weight:600;color:#94a3b8}.vb .vd{font-size:9px;color:#3d5070}
+#tinfo{background:#131c2e;border:1px solid #263347;border-radius:5px;padding:7px 9px;margin-top:5px;font-size:10.5px;color:#64748b;line-height:1.85}
+#tinfo b{color:#94a3b8}.badge{display:inline-block;background:#163258;color:#60a5fa;border-radius:3px;padding:0 5px;font-size:10.5px;font-weight:700;margin-left:3px}
+.mr{display:flex;align-items:center;gap:5px;padding:2px 0;font-size:10.5px;color:#475569;cursor:pointer}.mr:hover{color:#94a3b8}
+.mr input[type=radio]{accent-color:#60a5fa}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px}
+.fi label{display:block;font-size:9px;color:#3d5070;margin-bottom:2px}
+.fi input{width:100%;padding:4px 6px;background:#1a2d48;border:1px solid #263d58;border-radius:4px;color:#cbd5e1;font-size:11px;outline:none;font-family:inherit}
+.fi input:focus{border-color:#60a5fa}
+.cg{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.cc{background:#141f32;border:1px solid #1e2d42;border-radius:5px;padding:5px 7px}
+.ccico{font-size:13px;margin-bottom:1px}.ccname{font-size:10px;font-weight:600;color:#7fb3e8;line-height:1.2}
+.ccsz{font-size:8.5px;color:#3d5070;margin-top:1px}
+.qr{display:flex;align-items:center;gap:3px;margin-top:4px}
+.qr input[type=number]{width:38px;padding:2px 5px;background:#1a2d48;border:1px solid #263d58;border-radius:3px;color:#7fb3e8;font-size:11px;font-weight:700;text-align:center;outline:none;font-family:inherit;-moz-appearance:textfield}
+.qr input::-webkit-inner-spin-button,.qr input::-webkit-outer-spin-button{-webkit-appearance:none}
+.qr input:focus{border-color:#60a5fa}
+.qb{background:#1a2d48;border:1px solid #263d58;color:#64748b;width:18px;height:18px;border-radius:3px;cursor:pointer;font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.qb:hover{background:#223550;color:#cbd5e1}
+.qa{background:#163258;border:1px solid #1e4070;color:#60a5fa;border-radius:3px;padding:1px 6px;font-size:9.5px;font-weight:700;cursor:pointer;margin-left:auto;flex-shrink:0}
+.qa:hover{background:#1c4a80}
+.dots{display:flex;gap:4px;flex-wrap:wrap;margin-top:3px}
+.dot{width:16px;height:16px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform .12s}
+.dot:hover{transform:scale(1.2)}.dot.on{border-color:#fff}
+.btn{width:100%;padding:6px;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s}
+.ba{background:#2563eb;color:#fff}.ba:hover{background:#1d4ed8}
+.bg{background:#1a2d48;color:#6888a8;margin-top:3px}.bg:hover{background:#223550}
+#ilist{padding:4px 10px 0}
+.ir{background:#141f32;border:1px solid #1e2d42;border-radius:5px;padding:5px 8px;margin-bottom:3px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .15s}
+.ir:hover{border-color:#60a5fa33}.ir.on{border-color:#60a5fa;background:#163258}
+.isw{width:6px;height:20px;border-radius:2px;flex-shrink:0}
+.iname{font-size:10px;font-weight:600;color:#7fb3e8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+.isz{font-size:9px;color:#2e3e52;margin-top:1px}
+.idel{color:#2e3e52;font-size:13px;padding:1px 4px;border-radius:3px;cursor:pointer;flex-shrink:0}
+.idel:hover{color:#f87171;background:#ff000020}
+/* viewport */
+#vp{flex:1;position:relative;overflow:hidden}
+#vp canvas{position:absolute;top:0;left:0}
+.hud{position:absolute;pointer-events:none}
+#tips{top:11px;left:50%;transform:translateX(-50%);background:#0f1520cc;border:1px solid #2d3f5c;border-radius:14px;padding:5px 14px;font-size:10px;color:#64748b;white-space:nowrap}
+#stats{top:11px;right:11px;background:#0f1520cc;border:1px solid #2d3f5c;border-radius:7px;padding:7px 11px;font-size:10px;color:#475569;line-height:1.9}
+#stats b{color:#94a3b8}
+#selinfo{bottom:13px;left:50%;transform:translateX(-50%);background:#0f1520ee;border:1px solid #60a5fa44;border-radius:7px;padding:6px 15px;font-size:10px;color:#64748b;display:none;white-space:nowrap;text-align:center}
+#selinfo b{color:#60a5fa}
+#ctrl{position:absolute;bottom:13px;right:11px;display:none;flex-direction:column;gap:3px;align-items:flex-end;pointer-events:all}
+#ctrl{gap:6px!important}
+.ctrl-group{background:#0f1520ee;border:1px solid #2d3f5c;border-radius:7px;padding:6px 8px;min-width:220px}
+.ctrl-label{font-size:9px;font-weight:700;letter-spacing:.8px;color:#3d5070;text-transform:uppercase;margin-bottom:5px}
+.ctrl-row{display:flex;gap:4px;flex-wrap:wrap}
+.cbtn{background:#18253a;border:1px solid #2d3f5c;border-radius:5px;color:#5a7090;padding:5px 9px;font-size:10px;cursor:pointer;font-family:inherit;transition:all .15s;white-space:nowrap;display:flex;align-items:center;gap:4px;flex:1;min-width:60px;justify-content:center}
+.cbtn:hover{border-color:#60a5fa66;color:#a0c4ff;background:#1e3050}
+.cbtn.on{color:#fbbf24;border-color:#fbbf2488;background:#1e2a10}
+.cbtn.red{color:#f87171;border-color:#f8717133;flex:1}.cbtn.red:hover{background:#2a1515}
+.cico{font-size:12px;flex-shrink:0}
+/* lay-flat diagram previews */
+.cbtn.lay{flex-direction:column;gap:3px;padding:6px 5px;min-height:54px;min-width:64px}
+.lay-diagram{display:flex;align-items:flex-end;justify-content:center;height:28px;width:100%}
+.lay-box{background:#4a8fd0;border:1px solid #93c5fd;border-radius:2px;display:block;transition:all .2s}
+.lay-box.tall  {width:16px;height:26px}
+.lay-box.wide-z{width:16px;height:10px}
+.lay-box.wide-x{width:28px;height:10px}
+.cbtn.lay:hover .lay-box{background:#60a5fa}
+.cbtn.lay.on   .lay-box{background:#fbbf24;border-color:#fef08a}
+</style>
+</head>
+<body>
+<div id="sidebar">
+  <div class="sh"><h1>🏕️ 패밀리 캠핑 짐 정리 3D</h1><p>가방 수납 사이즈 기준 | 성인2+아이2+</p></div>
+  <div id="sb">
+    <div class="ss"><div class="sst">🚙 차량</div><div class="vg" id="vg"></div><div id="tinfo"></div></div>
+    <div class="ss" id="custsec" style="display:none">
+      <div class="sst">✏️ 직접 입력 cm</div>
+      <div class="g3">
+        <div class="fi"><label>가로W</label><input id="cW" type="number" value="120"></div>
+        <div class="fi"><label>깊이D</label><input id="cD" type="number" value="100"></div>
+        <div class="fi"><label>높이H</label><input id="cH" type="number" value="60"></div>
+      </div>
+      <div class="fi" style="margin-top:5px"><label>차량명</label><input id="cLbl" type="text" value="내 차"></div>
+      <button class="btn" style="background:#263347;color:#94a3b8;margin-top:5px" onclick="applyCustom()">적용</button>
+    </div>
+    <div class="ss"><div class="sst">⛺ 캠핑 장비 (가방 수납 기준)</div><div class="cg" id="cg"></div></div>
+    <div class="ss">
+      <div class="sst">📦 기타 짐</div>
+      <div class="fi" style="margin-bottom:5px"><label>이름</label><input id="iName" type="text" value="짐"></div>
+      <div class="g3">
+        <div class="fi"><label>가로cm</label><input id="iW" type="number" value="40"></div>
+        <div class="fi"><label>깊이cm</label><input id="iD" type="number" value="30"></div>
+        <div class="fi"><label>높이cm</label><input id="iH" type="number" value="25"></div>
+      </div>
+      <div class="fi" style="margin-top:4px"><label>색상</label><div class="dots" id="dots"></div></div>
+      <button class="btn ba" style="margin-top:5px" onclick="addCustom(false)">+ 바닥에 추가</button>
+      <button class="btn bg" onclick="addCustom(true)">↑ 선택 짐 위에 적재</button>
+    </div>
+    <div class="ss" style="padding-bottom:3px">
+      <div class="sst" style="display:flex;justify-content:space-between;align-items:center">
+        <span>📋 목록</span>
+        <button onclick="clearAll()" style="background:#1a2d48;color:#64748b;border:none;border-radius:3px;padding:2px 7px;font-size:9px;cursor:pointer;font-family:inherit">전체삭제</button>
+      </div>
+    </div>
+    <div id="ilist"><p style="text-align:center;color:#263347;font-size:10px;padding:12px">장비를 추가하세요</p></div>
+  </div>
+</div>
+
+<div id="vp">
+  <!-- canvas injected by JS -->
+  <div class="hud" id="tips">빈 곳 드래그: 시점 회전 | 휠: 줌 | 짐 클릭: 선택</div>
+  <div class="hud" id="stats"></div>
+  <div class="hud" id="selinfo"></div>
+  <!-- ctrl panel shown when item selected -->
+  <div id="ctrl">
+    <!-- Section: 드래그 모드 -->
+    <div class="ctrl-group">
+      <div class="ctrl-label">드래그 모드</div>
+      <div class="ctrl-row">
+        <button class="cbtn on" id="bMove" onclick="setEM('move')" title="단축키 1">
+          <span class="cico">✥</span>수평 이동
+        </button>
+        <button class="cbtn" id="bLift" onclick="setEM('lift')" title="단축키 2">
+          <span class="cico">⬆</span>높이 조절
+        </button>
+        <button class="cbtn" id="bRotY" onclick="setEM('rotY')" title="단축키 3">
+          <span class="cico">↻</span>회전
+        </button>
+      </div>
+    </div>
+    <!-- Section: 방향 전환 -->
+    <div class="ctrl-group">
+      <div class="ctrl-label">방향 전환 (눕히기)</div>
+      <div class="ctrl-row">
+        <button class="cbtn lay" onclick="layFlat('none')" id="bUp" title="세우기">
+          <span class="lay-diagram" id="dUp">
+            <span class="lay-box tall"></span>
+          </span>
+          세우기
+        </button>
+        <button class="cbtn lay" onclick="layFlat('xz')" id="bFrontBack" title="앞뒤 눕히기 (H↔D)">
+          <span class="lay-diagram" id="dFB">
+            <span class="lay-box wide-z"></span>
+          </span>
+          앞뒤 눕히기
+        </button>
+        <button class="cbtn lay" onclick="layFlat('yz')" id="bSide" title="옆으로 눕히기 (H↔W)">
+          <span class="lay-diagram" id="dSide">
+            <span class="lay-box wide-x"></span>
+          </span>
+          옆으로 눕히기
+        </button>
+      </div>
+    </div>
+    <!-- Section: 기타 -->
+    <div class="ctrl-group">
+      <div class="ctrl-label">기타</div>
+      <div class="ctrl-row">
+        <button class="cbtn" onclick="addCustom(true)" title="단축키 T">
+          <span class="cico">↑</span>위에 적재
+        </button>
+        <button class="cbtn red" onclick="if(selId)removeItem(selId)" title="단축키 Del">
+          <span class="cico">🗑</span>삭제
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* =====================================================
+   DATA
+===================================================== */
+var VEHICLES=[
+  {id:'i9', icon:'🔋',name:'아이오닉 9',   desc:'7인승',  modes:[{l:'3열 세움(620L)', w:133,d:75,h:82},{l:'3열 폴딩(1322L)',w:133,d:122,h:82}],note:'실측 133×82cm'},
+  {id:'cv7',icon:'🚌',name:'카니발 7인승', desc:'2025',   modes:[{l:'3열 세움(506L)', w:160,d:55,h:85},{l:'3열 싱킹(1300L)',w:160,d:120,h:85}],note:'너비 ~160cm'},
+  {id:'cv9',icon:'🚐',name:'카니발 9인승', desc:'2025',   modes:[{l:'3열 세움(200L)', w:145,d:45,h:82},{l:'3열 폴딩(1100L)',w:145,d:110,h:82}],note:'9인승 폴딩'},
+  {id:'pv5',icon:'🔌',name:'기아 PV5',     desc:'패신저', modes:[{l:'3열 탑승(400L)', w:155,d:60,h:130},{l:'3열 짐칸(1320L)',w:155,d:120,h:130}],note:'높이 ~130cm'},
+  {id:'cu', icon:'✏️',name:'기타',          desc:'직접입력',modes:[{l:'직접입력',w:120,d:100,h:60}],note:'아래 입력'}
+];
+var GEAR=[
+  {id:'fridge',ico:'🧊',name:'카투어 55L 냉장고',    w:69,d:35,h:53,color:'#3a7ac0', hasBag:false,note:'본체 실측'},
+  {id:'airmat',ico:'🛏️',name:'제백 에어리스 260',     w:66,d:40,h:32,color:'#0ea271', hasBag:true, note:'수납가방'},
+  {id:'igt',   ico:'🪵',name:'IGT 테이블 L',          w:99,d:58,h:10,color:'#a06820', hasBag:true, note:'접은 상태'},
+  {id:'chair', ico:'🪑',name:'쟈칼 팸퍼체어',         w:56,d:20,h:92,color:'#904828', hasBag:true, note:'원통형 가방'},
+  {id:'tent',  ico:'⛺',name:'에어노크 해피패밀리',    w:80,d:40,h:35,color:'#4848a8', hasBag:true, note:'수납백'},
+  {id:'fbox',  ico:'📦',name:'비겐트 폴딩박스',        w:55,d:40,h:40,color:'#a85020', hasBag:false,note:'폴딩 후'},
+  {id:'pouch', ico:'🧳',name:'브랜든 압축파우치 XXL',  w:45,d:16,h:35,color:'#602890', hasBag:false,note:'압축 후'},
+  {id:'carpet',ico:'🟫',name:'더이든 카페트 10.0',    w:75,d:35,h:25,color:'#604828', hasBag:true, note:'수납가방'},
+  {id:'grill', ico:'🔥',name:'중형 화로대',             w:45,d:45,h:20,color:'#902010', hasBag:true, note:'수납가방'},
+  {id:'wood',  ico:'🪵',name:'장작 10kg 박스',          w:40,d:30,h:25,color:'#604020', hasBag:false,note:'박스 크기'},
+  {id:'coal',  ico:'⚫',name:'숯 3kg 박스',             w:35,d:15,h:25,color:'#282828', hasBag:false,note:'박스 크기'}
+];
+var PALETTE=['#4a8fd0','#d05050','#d0a020','#20a870','#d07020','#8060d0','#d060a0','#2090c0','#40c080','#c06030'];
+
+/* =====================================================
+   STATE
+===================================================== */
+var selVeh=VEHICLES[0], selMode=0, trunk={w:133,d:75,h:82};
+var items=[], selId=null, selColor=PALETTE[0], editMode='move';
+
+/* =====================================================
+   THREE.JS — init after DOM is ready
+===================================================== */
+var scene, camera, renderer, raycaster, mouse;
+var trunkGroup=null, dPlane;
+var camSph={r:320, theta:0.7, phi:0.9}; // spherical coords
+var camLook=new THREE.Vector3(0,0,0);
+var isDragging=false, dragOnItem=false;
+var mouseDownPos={x:0,y:0}, prevMouse={x:0,y:0};
+var dragOffsetXZ=null, dragStartY=0, dragItemOrigY=0, dragItemOrigRY=0;
+
+function initThree(){
+  var vp=document.getElementById('vp');
+  var W=vp.clientWidth, H=vp.clientHeight;
+
+  scene=new THREE.Scene();
+  scene.background=new THREE.Color(0x0f1520);
+
+  camera=new THREE.PerspectiveCamera(45, W/H, 1, 4000);
+  updateCamera();
+
+  renderer=new THREE.WebGLRenderer({antialias:true, alpha:false});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  renderer.setSize(W,H);
+  renderer.shadowMap.enabled=true;
+  vp.appendChild(renderer.domElement);
+
+  /* Lights */
+  var amb=new THREE.AmbientLight(0xffffff,0.7); scene.add(amb);
+  var sun=new THREE.DirectionalLight(0xffffff,0.85);
+  sun.position.set(200,400,150); sun.castShadow=true;
+  sun.shadow.mapSize.width=1024; sun.shadow.mapSize.height=1024;
+  scene.add(sun);
+  var fill=new THREE.DirectionalLight(0x88aaff,0.35);
+  fill.position.set(-200,100,-150); scene.add(fill);
+
+  /* Grid */
+  var grid=new THREE.GridHelper(800,40,0x1e2d42,0x19243a);
+  scene.add(grid);
+
+  /* Drag plane */
+  dPlane=new THREE.Mesh(
+    new THREE.PlaneGeometry(4000,4000),
+    new THREE.MeshBasicMaterial({visible:false,side:THREE.DoubleSide})
+  );
+  dPlane.rotation.x=-Math.PI/2;
+  scene.add(dPlane);
+
+  raycaster=new THREE.Raycaster();
+  mouse=new THREE.Vector2();
+
+  rebuildTrunk();
+  setupEvents();
+
+  (function loop(){
+    requestAnimationFrame(loop);
+    renderer.render(scene,camera);
+  })();
+
+  window.addEventListener('resize',function(){
+    var W2=vp.clientWidth, H2=vp.clientHeight;
+    renderer.setSize(W2,H2);
+    camera.aspect=W2/H2;
+    camera.updateProjectionMatrix();
+  });
+}
+
+function camPos(){
+  return new THREE.Vector3(
+    camSph.r * Math.sin(camSph.phi) * Math.sin(camSph.theta),
+    camSph.r * Math.cos(camSph.phi),
+    camSph.r * Math.sin(camSph.phi) * Math.cos(camSph.theta)
+  );
+}
+function updateCamera(){
+  camera.position.copy(camPos());
+  camera.lookAt(camLook);
+}
+
+/* =====================================================
+   TRUNK
+===================================================== */
+function rebuildTrunk(){
+  if(trunkGroup){ scene.remove(trunkGroup); trunkGroup=null; }
+  trunkGroup=new THREE.Group();
+  var W=trunk.w, D=trunk.d, H=trunk.h;
+
+  /* Floor */
+  var floor=new THREE.Mesh(
+    new THREE.BoxGeometry(W,2,D),
+    new THREE.MeshLambertMaterial({color:0x1a3050})
+  );
+  floor.position.set(0,-1,0);
+  floor.receiveShadow=true;
+  trunkGroup.add(floor);
+
+  /* Walls — thin solid slabs so they're always visible */
+  var wallMat=new THREE.MeshLambertMaterial({color:0x1e3a60,transparent:true,opacity:0.28,side:THREE.DoubleSide});
+  [
+    [W,H,2, 0,H/2,-D/2],   // back
+    [W,H,2, 0,H/2, D/2],   // front
+    [2,H,D,-W/2,H/2,0],    // left
+    [2,H,D, W/2,H/2,0],    // right
+  ].forEach(function(f){
+    var m=new THREE.Mesh(new THREE.BoxGeometry(f[0],f[1],f[2]),wallMat);
+    m.position.set(f[3],f[4],f[5]);
+    trunkGroup.add(m);
+  });
+
+  /* Blue wireframe edges */
+  var wireGeo=new THREE.BoxGeometry(W,H,D);
+  var wire=new THREE.LineSegments(
+    new THREE.EdgesGeometry(wireGeo),
+    new THREE.LineBasicMaterial({color:0x60a5fa,linewidth:1})
+  );
+  wire.position.set(0,H/2,0);
+  trunkGroup.add(wire);
+
+  /* Dimension labels */
+  function makeLabel(txt,x,y,z){
+    var c=document.createElement('canvas'); c.width=200; c.height=44;
+    var ctx=c.getContext('2d');
+    ctx.font='bold 24px Arial';
+    ctx.fillStyle='#93c5fd';
+    ctx.textAlign='center';
+    ctx.fillText(txt,100,30);
+    var spr=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthTest:false}));
+    spr.scale.set(24,6,1);
+    spr.position.set(x,y,z);
+    trunkGroup.add(spr);
+  }
+  makeLabel('W: '+W+'cm', 0,       H+8, -D/2-5);
+  makeLabel('D: '+D+'cm', W/2+7,   H+8,  0);
+  makeLabel('H: '+H+'cm', W/2+10,  H/2,  -D/2-5);
+
+  scene.add(trunkGroup);
+
+  /* Refit camera */
+  var maxDim=Math.max(W,D,H);
+  camSph.r=maxDim*2.2;
+  camLook.set(0,H/2,0);
+  updateCamera();
+}
+
+/* =====================================================
+   ITEMS
+===================================================== */
+var itemMeshes={}; // id -> THREE.Mesh
+
+function makeItemMesh(item){
+  var geo=new THREE.BoxGeometry(item.w,item.h,item.d);
+  var mat=new THREE.MeshLambertMaterial({
+    color:new THREE.Color(item.color),
+    transparent:true, opacity:0.88
+  });
+  var mesh=new THREE.Mesh(geo,mat);
+  mesh.add(new THREE.LineSegments(
+    new THREE.EdgesGeometry(geo),
+    new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:0.28})
+  ));
+  mesh.position.set(item.px, item.py+item.h/2, item.pz);
+  mesh.rotation.y=item.ry||0;
+  mesh.castShadow=true; mesh.receiveShadow=true;
+  mesh.userData.itemId=item.id;
+  scene.add(mesh);
+  itemMeshes[item.id]=mesh;
+  return mesh;
+}
+
+function rebuildItemMesh(item){
+  var old=itemMeshes[item.id];
+  if(old){ scene.remove(old); delete itemMeshes[item.id]; }
+  makeItemMesh(item);
+  highlightSelected();
+}
+
+function highlightSelected(){
+  items.forEach(function(it){
+    var m=itemMeshes[it.id]; if(!m)return;
+    m.material.emissive=new THREE.Color(it.id===selId?0x1a3870:0x000000);
+  });
+}
+
+function spawnItem(name,iw,id_,ih,color,gearId,baseItem,hasBag,note){
+  var bx=0, by=0, bz=0;
+  if(baseItem){ bx=baseItem.px; by=baseItem.py+baseItem.h; bz=baseItem.pz; }
+  var item={
+    id:'it_'+Date.now()+'_'+Math.floor(Math.random()*9999),
+    name:name, w:iw, d:id_, h:ih, color:color,
+    gearId:gearId||null, hasBag:!!hasBag, note:note||'',
+    onTop:baseItem?baseItem.id:null,
+    px:bx, py:by, pz:bz, ry:0
+  };
+  clampToTrunk(item);
+  items.push(item);
+  resolveItemCollisions(item);
+  clampToTrunk(item);
+  makeItemMesh(item);
+  renderList(); updateStats(); selectItem(item.id);
+  return item;
+}
+
+function addCustom(onTop){
+  var name=document.getElementById('iName').value||'짐';
+  var w=parseFloat(document.getElementById('iW').value)||40;
+  var d=parseFloat(document.getElementById('iD').value)||30;
+  var h=parseFloat(document.getElementById('iH').value)||25;
+  var base=null;
+  if(onTop){ if(!selId){alert('먼저 짐을 선택하세요');return;} base=items.find(function(i){return i.id===selId;})||null; }
+  spawnItem(name,w,d,h,selColor,null,base,false,'');
+}
+
+function removeItem(id){
+  var idx=items.findIndex(function(i){return i.id===id;}); if(idx<0)return;
+  var m=itemMeshes[id]; if(m){scene.remove(m); delete itemMeshes[id];}
+  items.splice(idx,1);
+  if(selId===id){selId=null; showCtrl(false); document.getElementById('selinfo').style.display='none';}
+  syncQty(); renderList(); updateStats();
+}
+
+function clearAll(){
+  items.forEach(function(it){var m=itemMeshes[it.id];if(m){scene.remove(m);delete itemMeshes[it.id];}});
+  items=[]; selId=null;
+  syncQty(); showCtrl(false); document.getElementById('selinfo').style.display='none';
+  renderList(); updateStats();
+}
+
+function selectItem(id){
+  selId=id;
+  highlightSelected();
+  var item=items.find(function(i){return i.id===id;});
+  if(item){
+    showCtrl(true);
+    document.getElementById('selinfo').style.display='block';
+    document.getElementById('selinfo').innerHTML='선택: <b>'+item.name+'</b> &nbsp;'+item.w+'×'+item.d+'×'+item.h+'cm';
+    updateLayButtons(item);
+  } else {
+    showCtrl(false);
+    document.getElementById('selinfo').style.display='none';
+  }
+  renderList();
+}
+
+function showCtrl(s){document.getElementById('ctrl').style.display=s?'flex':'none';}
+
+function setEM(m){
+  editMode=m;
+  ['bMove','bLift','bRotY'].forEach(function(id){var b=document.getElementById(id);if(b)b.classList.remove('on');});
+  var map={move:'bMove',lift:'bLift',rotY:'bRotY'};
+  if(map[m]){var b=document.getElementById(map[m]);if(b)b.classList.add('on');}
+}
+
+function layFlat(axis){
+  if(!selId)return;
+  var item=items.find(function(i){return i.id===selId;}); if(!item)return;
+
+  // Store original dims on first touch so we can restore
+  if(!item.origW){ item.origW=item.w; item.origD=item.d; item.origH=item.h; }
+
+  var nw, nd, nh;
+  if(axis==='none'){          // 세우기 — restore original
+    nw=item.origW; nd=item.origD; nh=item.origH;
+    item.layAxis=null;
+  } else if(axis==='xz'){    // 앞뒤 눕히기: H ↔ D
+    nw=item.origW; nd=item.origH; nh=item.origD;
+    item.layAxis='xz';
+  } else {                   // 옆으로 눕히기: H ↔ W
+    nw=item.origH; nd=item.origD; nh=item.origW;
+    item.layAxis='yz';
+  }
+  item.w=nw; item.d=nd; item.h=nh;
+  clampToTrunk(item);
+  resolveItemCollisions(item);
+  clampToTrunk(item);
+  rebuildItemMesh(item);
+  updateLayButtons(item);
+  renderList(); updateStats();
+}
+
+function updateLayButtons(item){
+  ['bUp','bFrontBack','bSide'].forEach(function(id){
+    var b=document.getElementById(id); if(b)b.classList.remove('on');
+  });
+  if(!item||!item.layAxis){var b=document.getElementById('bUp');if(b)b.classList.add('on');}
+  else if(item.layAxis==='xz'){var b=document.getElementById('bFrontBack');if(b)b.classList.add('on');}
+  else{var b=document.getElementById('bSide');if(b)b.classList.add('on');}
+}
+
+/* =====================================================
+   GEAR CATALOG
+===================================================== */
+function buildCat(){
+  var g=document.getElementById('cg'); g.innerHTML='';
+  GEAR.forEach(function(c){
+    var card=document.createElement('div'); card.className='cc';
+    var bag=c.hasBag?'<span style="font-size:8px;color:#34d399;margin-left:2px">가방</span>':'';
+    card.innerHTML='<div class="ccico">'+c.ico+'</div><div class="ccname">'+c.name+bag+'</div>'
+      +'<div class="ccsz">'+c.w+'×'+c.d+'×'+c.h+'cm</div>'
+      +'<div class="qr">'
+      +'<button class="qb" onclick="stepQ(\''+c.id+'\',-1)">−</button>'
+      +'<input type="number" id="qi-'+c.id+'" value="0" min="0" style="width:38px">'
+      +'<button class="qb" onclick="stepQ(\''+c.id+'\',1)">+</button>'
+      +'<button class="qa" onclick="applyQ(\''+c.id+'\')">적용</button>'
+      +'</div>';
+    g.appendChild(card);
+  });
+}
+function stepQ(id,d){
+  var inp=document.getElementById('qi-'+id); if(!inp)return;
+  inp.value=Math.max(0,(parseInt(inp.value||0)+d));
+}
+function applyQ(id){
+  var g=GEAR.find(function(c){return c.id===id;}); if(!g)return;
+  var target=Math.max(0,parseInt(document.getElementById('qi-'+id).value)||0);
+  var cur=items.filter(function(it){return it.gearId===id;}).length;
+  while(cur<target){spawnItem(g.name,g.w,g.d,g.h,g.color,g.id,null,g.hasBag,g.note);cur++;}
+  while(cur>target){
+    for(var i=items.length-1;i>=0;i--){if(items[i].gearId===id){removeItem(items[i].id);break;}}
+    cur--;
+  }
+}
+function syncQty(){
+  GEAR.forEach(function(g){
+    var cnt=items.filter(function(it){return it.gearId===g.id;}).length;
+    var el=document.getElementById('qi-'+g.id); if(el)el.value=cnt;
+  });
+}
+
+/* =====================================================
+   VEHICLE UI
+===================================================== */
+function buildVeh(){
+  var g=document.getElementById('vg'); g.innerHTML='';
+  VEHICLES.forEach(function(v,i){
+    var b=document.createElement('div'); b.className='vb'+(i===0?' on':'');
+    b.innerHTML='<span class="vi">'+v.icon+'</span><div class="vn">'+v.name+'</div><div class="vd">'+v.desc+'</div>';
+    b.onclick=function(){
+      document.querySelectorAll('.vb').forEach(function(x){x.classList.remove('on');}); b.classList.add('on');
+      selVeh=v; selMode=0;
+      document.getElementById('custsec').style.display=(v.id==='cu')?'block':'none';
+      applyMode(0);
+    };
+    g.appendChild(b);
+  });
+}
+function refreshTinfo(){
+  var v=selVeh, vol=Math.round(trunk.w*trunk.d*trunk.h/1000), html='<div style="margin-bottom:4px">';
+  v.modes.forEach(function(m,i){
+    html+='<div class="mr"><input type="radio" name="vm" '+(i===selMode?'checked':'')+' onchange="applyMode('+i+')"><span style="color:'+(i===selMode?'#94a3b8':'#475569')+'">'+m.l+'</span></div>';
+  });
+  html+='</div><div style="border-top:1px solid #263347;padding-top:5px"><b>'+trunk.w+'</b>×<b>'+trunk.d+'</b>×<b>'+trunk.h+'</b>cm<span class="badge">'+vol+'L</span></div>';
+  html+='<div style="font-size:9px;color:#263347;margin-top:2px">'+v.note+'</div>';
+  document.getElementById('tinfo').innerHTML=html;
+}
+function applyMode(i){
+  selMode=i; var m=selVeh.modes[i]; trunk={w:m.w,d:m.d,h:m.h};
+  rebuildTrunk(); refreshTinfo(); updateStats();
+}
+function applyCustom(){
+  var w=parseFloat(document.getElementById('cW').value)||120;
+  var d=parseFloat(document.getElementById('cD').value)||100;
+  var h=parseFloat(document.getElementById('cH').value)||60;
+  var lbl=document.getElementById('cLbl').value||'기타';
+  selVeh.modes[0]={l:lbl,w:w,d:d,h:h}; selVeh.note=lbl+' '+w+'×'+d+'×'+h+'cm';
+  applyMode(0);
+}
+
+/* =====================================================
+   LIST / STATS
+===================================================== */
+function renderList(){
+  var el=document.getElementById('ilist');
+  if(!items.length){el.innerHTML='<p style="text-align:center;color:#263347;font-size:10px;padding:12px">장비를 추가하세요</p>';return;}
+  var html='';
+  items.forEach(function(it){
+    var tag=it.onTop?'<span style="font-size:8px;color:#34d399;margin-left:2px">↑위</span>':'';
+    var bag=it.hasBag?'<span style="font-size:7.5px;color:#60a5fa;margin-left:2px">가방</span>':'';
+    html+='<div class="ir'+(selId===it.id?' on':'')+'" onclick="selectItem(\''+it.id+'\')">'
+      +'<div class="isw" style="background:'+it.color+'"></div>'
+      +'<div style="flex:1;min-width:0"><div class="iname">'+it.name+tag+bag+'</div>'
+      +'<div class="isz">'+it.w+'×'+it.d+'×'+it.h+'cm'+(it.note?' · '+it.note:'')+'</div></div>'
+      +'<div class="idel" onclick="event.stopPropagation();removeItem(\''+it.id+'\')">×</div></div>';
+  });
+  el.innerHTML=html;
+}
+function updateStats(){
+  var tv=trunk.w*trunk.d*trunk.h, uv=items.reduce(function(s,i){return s+i.w*i.d*i.h;},0);
+  var pct=tv>0?Math.min(999,Math.round(uv/tv*100)):0;
+  var col=pct>90?'#f87171':pct>65?'#fbbf24':'#60a5fa';
+  document.getElementById('stats').innerHTML='<b>'+selVeh.name+'</b><br>'+selVeh.modes[selMode].l+'<br>트렁크 <b>'+trunk.w+'×'+trunk.d+'×'+trunk.h+'</b>cm<br>짐 <b>'+items.length+'</b>개<br>점유율 <b style="color:'+col+'">'+pct+'%</b>';
+}
+
+/* =====================================================
+   COLORS
+===================================================== */
+function buildColors(){
+  var el=document.getElementById('dots'); el.innerHTML='';
+  PALETTE.forEach(function(c,i){
+    var d=document.createElement('div'); d.className='dot'+(i===0?' on':''); d.style.background=c;
+    d.onclick=function(){document.querySelectorAll('.dot').forEach(function(x){x.classList.remove('on');}); d.classList.add('on'); selColor=c;};
+    el.appendChild(d);
+  });
+}
+
+/* =====================================================
+   MOUSE EVENTS
+===================================================== */
+function getNDC(cx,cy){
+  var r=renderer.domElement.getBoundingClientRect();
+  return{x:((cx-r.left)/r.width)*2-1, y:-((cy-r.top)/r.height)*2+1};
+}
+function raycastItems(nx,ny){
+  mouse.x=nx; mouse.y=ny;
+  raycaster.setFromCamera(mouse,camera);
+  var meshes=items.map(function(i){return itemMeshes[i.id];}).filter(Boolean);
+  var hits=raycaster.intersectObjects(meshes,false);
+  return hits.length?hits[0]:null;
+}
+function hitPlane(nx,ny,py){
+  dPlane.position.y=py;
+  mouse.x=nx; mouse.y=ny;
+  raycaster.setFromCamera(mouse,camera);
+  var hits=raycaster.intersectObject(dPlane,false);
+  return hits.length?hits[0].point:null;
+}
+
+/* =====================================================
+   TRUNK CLAMP — 짐이 트렁크 밖으로 나가지 않도록
+===================================================== */
+function clampToTrunk(item){
+  // Trunk occupies x: [-W/2 .. W/2], y: [0 .. H], z: [-D/2 .. D/2]
+  // item.px/pz = centre of item, item.py = bottom of item
+  var hw = item.w / 2;  // half-width
+  var hd = item.d / 2;  // half-depth
+  var tw = trunk.w / 2;
+  var td = trunk.d / 2;
+
+  // X: item centre ± hw must stay within ±tw
+  item.px = Math.max(-tw + hw, Math.min(tw - hw, item.px));
+  // Z: item centre ± hd must stay within ±td
+  item.pz = Math.max(-td + hd, Math.min(td - hd, item.pz));
+  // Y: bottom >= 0, top (py + h) <= trunk.h
+  item.py = Math.max(0, Math.min(trunk.h - item.h, item.py));
+}
+
+/* flash red border on trunk wire to hint collision */
+var _warnTimer=null;
+function flashTrunk(){
+  if(!trunkGroup)return;
+  trunkGroup.traverse(function(obj){
+    if(obj.isLineSegments&&obj.material){obj.material.color.setHex(0xff4444);}
+  });
+  clearTimeout(_warnTimer);
+  _warnTimer=setTimeout(function(){
+    if(!trunkGroup)return;
+    trunkGroup.traverse(function(obj){
+      if(obj.isLineSegments&&obj.material){obj.material.color.setHex(0x60a5fa);}
+    });
+  },300);
+}
+
+/* ── AABB helpers ── */
+function getBox(it){
+  return{
+    minX: it.px - it.w/2, maxX: it.px + it.w/2,
+    minY: it.py,           maxY: it.py + it.h,
+    minZ: it.pz - it.d/2, maxZ: it.pz + it.d/2
+  };
+}
+function boxesOverlap(a,b){
+  // small epsilon so touching faces don't count as overlap
+  var EPS=0.01;
+  return a.maxX-b.minX>EPS && b.maxX-a.minX>EPS &&
+         a.maxY-b.minY>EPS && b.maxY-a.minY>EPS &&
+         a.maxZ-b.minZ>EPS && b.maxZ-a.minZ>EPS;
+}
+
+/* Returns true if movingItem overlaps any other item */
+function hasCollision(movingItem){
+  var a=getBox(movingItem);
+  for(var i=0;i<items.length;i++){
+    if(items[i].id===movingItem.id) continue;
+    if(boxesOverlap(a,getBox(items[i]))) return true;
+  }
+  return false;
+}
+
+/* Try to move on X/Z separately; revert the axis that causes collision.
+   This lets you slide along a face instead of hard-stopping. */
+function moveWithCollision(item, newPx, newPz, newPy){
+  var origPx=item.px, origPz=item.pz, origPy=item.py;
+  var trunkHit=false, itemHit=false;
+
+  // ── try full move first ──────────────────────────────────────
+  item.px=newPx; item.pz=newPz; item.py=newPy;
+  clampToTrunk(item);
+  if(item.px!==newPx||item.pz!==newPz||item.py!==newPy) trunkHit=true;
+
+  if(!hasCollision(item)){
+    if(trunkHit) flashTrunk();
+    return; // clean move — done
+  }
+
+  // ── collision: try each axis independently ──────────────────
+  itemHit=true;
+
+  // try X only
+  item.px=newPx; item.pz=origPz; item.py=origPy;
+  clampToTrunk(item);
+  var xOk=!hasCollision(item);
+
+  // try Z only
+  item.px=origPx; item.pz=newPz; item.py=origPy;
+  clampToTrunk(item);
+  var zOk=!hasCollision(item);
+
+  // try Y only
+  item.px=origPx; item.pz=origPz; item.py=newPy;
+  clampToTrunk(item);
+  var yOk=!hasCollision(item);
+
+  // pick best combination
+  if(xOk && zOk){
+    item.px=newPx; item.pz=newPz; item.py=origPy;
+    clampToTrunk(item);
+    if(!hasCollision(item)){if(trunkHit||itemHit)flashTrunk();return;}
+  }
+  if(xOk){ item.px=newPx; item.pz=origPz; item.py=origPy; clampToTrunk(item); if(trunkHit||itemHit)flashTrunk(); return; }
+  if(zOk){ item.px=origPx; item.pz=newPz; item.py=origPy; clampToTrunk(item); if(trunkHit||itemHit)flashTrunk(); return; }
+  if(yOk){ item.px=origPx; item.pz=origPz; item.py=newPy; clampToTrunk(item); if(trunkHit||itemHit)flashTrunk(); return; }
+
+  // fully blocked — restore
+  item.px=origPx; item.pz=origPz; item.py=origPy;
+  flashTrunk();
+}
+
+/* Resolve collision for spawn/layFlat by finding nearest free spot */
+function resolveItemCollisions(movingItem){
+  if(!hasCollision(movingItem)) return false;
+  // Try nudging in small steps on each axis until clear
+  var step=1, MAX=200, collided=true;
+  for(var t=step;t<MAX&&hasCollision(movingItem);t+=step){
+    var dirs=[[t,0,0],[-t,0,0],[0,t,0],[0,0,t],[0,0,-t],[0,-t,0]];
+    var found=false;
+    for(var di=0;di<dirs.length;di++){
+      var d=dirs[di];
+      var tx=movingItem.px+d[0], ty=movingItem.py+d[1], tz=movingItem.pz+d[2];
+      movingItem.px=tx; movingItem.py=ty; movingItem.pz=tz;
+      clampToTrunk(movingItem);
+      if(!hasCollision(movingItem)){found=true;break;}
+      movingItem.px=movingItem.px-d[0]; movingItem.py=movingItem.py-d[1]; movingItem.pz=movingItem.pz-d[2];
+    }
+    if(found){collided=false;break;}
+  }
+  return collided;
+}
+
+function clampWithFlash(item, prevPx, prevPz, prevPy){
+  // used for lift and rotY — just clamp + collision check
+  var bx=item.px, bz=item.pz, by=item.py;
+  clampToTrunk(item);
+  var trunkHit=(item.px!==bx||item.pz!==bz||item.py!==by);
+  if(hasCollision(item)){
+    item.px=prevPx; item.pz=prevPz; item.py=prevPy;
+    clampToTrunk(item);
+    flashTrunk();
+  } else if(trunkHit){
+    flashTrunk();
+  }
+}
+
+function setupEvents(){
+  var cv=renderer.domElement;
+  cv.style.cursor='default';
+  cv.addEventListener('contextmenu',function(e){e.preventDefault();});
+
+  cv.addEventListener('mousedown',function(e){
+    e.preventDefault();
+    mouseDownPos={x:e.clientX,y:e.clientY};
+    prevMouse={x:e.clientX,y:e.clientY};
+    isDragging=true; dragOnItem=false;
+
+    var nd=getNDC(e.clientX,e.clientY);
+    var hit=raycastItems(nd.x,nd.y);
+    if(hit){
+      var hid=hit.object.userData.itemId;
+      if(hid!==selId){ selectItem(hid); return; }
+      // same item — prepare drag
+      dragOnItem=true;
+      var item=items.find(function(i){return i.id===selId;});
+      if(!item)return;
+      dragItemOrigY=item.py;
+      dragItemOrigRY=item.ry;
+      dragStartY=e.clientY;
+      if(editMode==='move'){
+        var pt=hitPlane(nd.x,nd.y,item.py+item.h/2);
+        if(pt) dragOffsetXZ={x:item.px-pt.x, z:item.pz-pt.z};
+      }
+      cv.style.cursor='grabbing';
+    }
+  });
+
+  window.addEventListener('mousemove',function(e){
+    if(!isDragging)return;
+    var dx=e.clientX-prevMouse.x, dy=e.clientY-prevMouse.y;
+
+    if(dragOnItem&&selId){
+      var item=items.find(function(i){return i.id===selId;});
+      if(item){
+        var nd=getNDC(e.clientX,e.clientY);
+        var ppx=item.px, ppz=item.pz, ppy=item.py;
+        if(editMode==='move'){
+          var pt=hitPlane(nd.x,nd.y,item.py+item.h/2);
+          if(pt&&dragOffsetXZ){
+            moveWithCollision(item, pt.x+dragOffsetXZ.x, pt.z+dragOffsetXZ.z, item.py);
+          }
+        } else if(editMode==='lift'){
+          var newPy=dragItemOrigY+(dragStartY-e.clientY)*0.6;
+          item.py=newPy;
+          clampWithFlash(item, ppx, ppz, ppy);
+        } else if(editMode==='rotY'){
+          item.ry=dragItemOrigRY+dx*0.02;
+          // for rotation: if now overlapping, revert rotation
+          if(hasCollision(item)){ item.ry=dragItemOrigRY; }
+        }
+        var m=itemMeshes[item.id];
+        if(m){ m.position.set(item.px,item.py+item.h/2,item.pz); m.rotation.y=item.ry||0; }
+      }
+    } else {
+      // orbit camera
+      camSph.theta-=dx*0.005;
+      camSph.phi=Math.max(0.1,Math.min(1.55,camSph.phi+dy*0.005));
+      updateCamera();
+    }
+    prevMouse={x:e.clientX,y:e.clientY};
+  });
+
+  window.addEventListener('mouseup',function(e){
+    if(isDragging&&!dragOnItem){
+      var moved=Math.abs(e.clientX-mouseDownPos.x)+Math.abs(e.clientY-mouseDownPos.y);
+      if(moved<5){
+        var nd=getNDC(e.clientX,e.clientY);
+        if(!raycastItems(nd.x,nd.y)){
+          selId=null; highlightSelected(); showCtrl(false);
+          document.getElementById('selinfo').style.display='none'; renderList();
+        }
+      }
+    }
+    isDragging=false; dragOnItem=false; dragOffsetXZ=null;
+    var cv2=renderer.domElement; if(cv2)cv2.style.cursor='default';
+  });
+
+  renderer.domElement.addEventListener('wheel',function(e){
+    e.preventDefault();
+    camSph.r=Math.max(60,Math.min(1400,camSph.r+e.deltaY*0.5));
+    updateCamera();
+  },{passive:false});
+
+  window.addEventListener('keydown',function(e){
+    var k=e.key;
+    if(k==='Escape'){selId=null;highlightSelected();showCtrl(false);document.getElementById('selinfo').style.display='none';renderList();}
+    if(!selId)return;
+    if(k==='1')setEM('move'); if(k==='2')setEM('lift'); if(k==='3')setEM('rotY');
+    if(k==='Delete')removeItem(selId);
+    if(k==='q'||k==='Q')layFlat('none');
+    if(k==='e'||k==='E')layFlat('xz');
+    if(k==='f'||k==='F')layFlat('yz');
+    if(k==='t'||k==='T')addCustom(true);
+  });
+}
+
+/* =====================================================
+   BOOT
+===================================================== */
+buildVeh(); buildCat(); buildColors();
+// Wait for layout to settle, then init Three.js
+window.addEventListener('load',function(){
+  setTimeout(function(){
+    initThree(); refreshTinfo(); updateStats();
+  },50);
+});
+</script>
+</body>
+</html>
