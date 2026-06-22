@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background: transparent;
+            color: #2D3436;
+        }
+        #scanner-container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        #reader {
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+        /* html5-qrcode 내부 스타일 덮어쓰기 */
+        #reader img[alt="Info icon"] { display: none !important; }
+        #reader__dashboard_section { padding: 8px !important; }
+        #reader__dashboard_section_csr button {
+            background: #6C5CE7 !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 8px !important;
+            padding: 8px 16px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+        }
+        .btn-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .btn {
+            flex: 1;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .btn:hover { opacity: 0.85; }
+        .btn-start {
+            background: #6C5CE7;
+            color: white;
+        }
+        .btn-stop {
+            background: #E17055;
+            color: white;
+        }
+        .result-area {
+            background: #F8F9FA;
+            border: 2px solid #DFE6E9;
+            border-radius: 10px;
+            padding: 16px;
+            text-align: center;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .result-area.found {
+            border-color: #00B894;
+            background: #E6FFF9;
+        }
+        .result-text {
+            font-size: 18px;
+            font-weight: 700;
+            color: #2D3436;
+            word-break: break-all;
+        }
+        .waiting-text {
+            color: #B2BEC3;
+            font-size: 14px;
+        }
+        .status-msg {
+            margin-top: 8px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            text-align: center;
+        }
+        .status-error {
+            background: #FFEAA7;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div id="scanner-container">
+        <!-- 시작/중지 버튼 -->
+        <div class="btn-row">
+            <button class="btn btn-start" id="startBtn" onclick="startScan()">📷 스캔 시작</button>
+            <button class="btn btn-stop" id="stopBtn" onclick="stopScan()" style="display:none">⏹ 스캔 중지</button>
+        </div>
+
+        <!-- 카메라 화면 -->
+        <div id="reader"></div>
+
+        <!-- 인식 결과 -->
+        <div class="result-area" id="resultArea">
+            <span class="waiting-text">카메라를 켜고 바코드를 비춰주세요</span>
+        </div>
+
+        <!-- 오류 메시지 -->
+        <div id="statusMsg"></div>
+    </div>
+
+    <script>
+        /* ── Streamlit 컴포넌트 통신 함수 ── */
+        function sendToStreamlit(type, data) {
+            window.parent.postMessage(
+                { isStreamlitMessage: true, type: type, ...data },
+                "*"
+            );
+        }
+
+        function setComponentValue(value) {
+            sendToStreamlit("streamlit:setComponentValue", { value: value });
+        }
+
+        function setFrameHeight(height) {
+            sendToStreamlit("streamlit:setFrameHeight", { height: height });
+        }
+
+        /* ── 스캐너 변수 ── */
+        let scanner = null;
+        let isScanning = false;
+        let lastScannedCode = "";
+        let scanCooldown = false;
+
+        /* ── 스캔 시작 ── */
+        function startScan() {
+            document.getElementById("startBtn").style.display = "none";
+            document.getElementById("stopBtn").style.display = "block";
+            document.getElementById("statusMsg").innerHTML = "";
+
+            scanner = new Html5Qrcode("reader");
+
+            // 바코드 인식 설정 (줄무늬 바코드 전용)
+            var config = {
+                fps: 10,
+                qrbox: { width: 280, height: 120 },
+                formatsToSupport: [
+                    Html5QrcodeSupportedFormats.EAN_13,
+                    Html5QrcodeSupportedFormats.EAN_8,
+                    Html5QrcodeSupportedFormats.CODE_128,
+                    Html5QrcodeSupportedFormats.CODE_39,
+                    Html5QrcodeSupportedFormats.CODE_93,
+                    Html5QrcodeSupportedFormats.UPC_A,
+                    Html5QrcodeSupportedFormats.UPC_E,
+                    Html5QrcodeSupportedFormats.ITF,
+                    Html5QrcodeSupportedFormats.CODABAR
+                ]
+            };
+
+            scanner.start(
+                { facingMode: "environment" },  // 후면 카메라 우선
+                config,
+                onScanSuccess,
+                onScanFailure
+            ).then(function() {
+                isScanning = true;
+                updateHeight();
+            }).catch(function(err) {
+                // 카메라 접근 실패 시
+                document.getElementById("startBtn").style.display = "block";
+                document.getElementById("stopBtn").style.display = "none";
+                document.getElementById("statusMsg").innerHTML =
+                    '<div class="status-msg status-error">⚠️ 카메라를 사용할 수 없습니다. 브라우저에서 카메라 권한을 허용해주세요.</div>';
+                updateHeight();
+            });
+        }
+
+        /* ── 스캔 중지 ── */
+        function stopScan() {
+            if (scanner && isScanning) {
+                scanner.stop().then(function() {
+                    isScanning = false;
+                    document.getElementById("startBtn").style.display = "block";
+                    document.getElementById("stopBtn").style.display = "none";
+                    document.getElementById("reader").innerHTML = "";
+                    updateHeight();
+                });
+            }
+        }
+
+        /* ── 바코드 인식 성공 ── */
+        function onScanSuccess(decodedText, decodedResult) {
+            // 같은 바코드 연속 인식 방지 (2초 쿨다운)
+            if (scanCooldown) return;
+
+            scanCooldown = true;
+            setTimeout(function() {
+                scanCooldown = false;
+                lastScannedCode = "";
+            }, 2000);
+
+            lastScannedCode = decodedText;
+
+            // 화면에 결과 표시
+            var resultArea = document.getElementById("resultArea");
+            resultArea.className = "result-area found";
+            resultArea.innerHTML = '<span class="result-text">✅ ' + decodedText + '</span>';
+
+            // Streamlit으로 값 전송 (바코드 + 현재 시각)
+            setComponentValue({
+                barcode: decodedText,
+                timestamp: Date.now()
+            });
+
+            updateHeight();
+        }
+
+        /* ── 바코드 인식 실패 (매 프레임 호출, 무시) ── */
+        function onScanFailure(error) {
+            // 인식 실패는 정상 (바코드가 없는 프레임)
+        }
+
+        /* ── iframe 높이 갱신 ── */
+        function updateHeight() {
+            setTimeout(function() {
+                setFrameHeight(document.body.scrollHeight + 20);
+            }, 200);
+        }
+
+        /* ── Streamlit 렌더 이벤트 수신 ── */
+        window.addEventListener("message", function(event) {
+            if (event.data && event.data.type === "streamlit:render") {
+                updateHeight();
+            }
+        });
+
+        /* ── 컴포넌트 준비 완료 알림 ── */
+        sendToStreamlit("streamlit:componentReady", { apiVersion: 1 });
+        updateHeight();
+    </script>
+</body>
+</html>
