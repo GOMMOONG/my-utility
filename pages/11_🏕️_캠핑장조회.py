@@ -2,6 +2,7 @@ import streamlit as st
 import sys, os, json, urllib.parse, urllib.request, ssl
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from style import apply_common_style, show_page_header, check_password
+from api_config import get_key, set_key
 
 st.set_page_config(page_title="캠핑장 조회 - 마이 유틸리티", page_icon="🏕️", layout="wide")
 apply_common_style()
@@ -227,9 +228,9 @@ st.sidebar.markdown(
     unsafe_allow_html=True
 )
 
-# API 키를 session_state에 저장
+# API 키를 session_state에 저장 (파일에서 먼저 불러옴)
 if "camping_api_key" not in st.session_state:
-    st.session_state.camping_api_key = ""
+    st.session_state.camping_api_key = get_key("camping_api_key")
 
 api_key_input = st.sidebar.text_input(
     "API 키 입력", value=st.session_state.camping_api_key,
@@ -237,6 +238,14 @@ api_key_input = st.sidebar.text_input(
 )
 if api_key_input:
     st.session_state.camping_api_key = api_key_input
+
+# API 키 저장 버튼
+if st.sidebar.button("💾 API 키 저장", use_container_width=True, help="입력한 키를 파일에 저장하면 다음에 자동으로 불러옵니다"):
+    if st.session_state.camping_api_key:
+        set_key("camping_api_key", st.session_state.camping_api_key)
+        st.sidebar.success("✅ 저장되었습니다!")
+    else:
+        st.sidebar.warning("API 키를 먼저 입력해주세요.")
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 🔍 검색 조건")

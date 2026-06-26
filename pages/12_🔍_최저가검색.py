@@ -4,6 +4,7 @@ import requests
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from style import apply_common_style, show_page_header, check_password
+from api_config import get_key, set_key
 
 st.set_page_config(page_title="최저가검색 - 마이 유틸리티", page_icon="🔍", layout="centered")
 apply_common_style()
@@ -39,17 +40,24 @@ def search_products(query, client_id, client_secret, sort="asc", display=50, sta
     return items
 
 # ── API 키 관리 ──
-# Streamlit Secrets에 naver_client_id / naver_client_secret이 있으면 사용
-try:
-    default_id = st.secrets.get("naver_client_id", "")
-    default_secret = st.secrets.get("naver_client_secret", "")
-except Exception:
-    default_id, default_secret = "", ""
-
+# 파일에 저장된 키 우선, 없으면 Streamlit Secrets에서 시도
 if "naver_id" not in st.session_state:
-    st.session_state.naver_id = default_id
+    saved_id = get_key("naver_client_id")
+    if not saved_id:
+        try:
+            saved_id = st.secrets.get("naver_client_id", "")
+        except Exception:
+            saved_id = ""
+    st.session_state.naver_id = saved_id
+
 if "naver_secret" not in st.session_state:
-    st.session_state.naver_secret = default_secret
+    saved_secret = get_key("naver_client_secret")
+    if not saved_secret:
+        try:
+            saved_secret = st.secrets.get("naver_client_secret", "")
+        except Exception:
+            saved_secret = ""
+    st.session_state.naver_secret = saved_secret
 
 # API 키 설정 영역
 with st.expander("⚙️ 네이버 API 키 설정 (처음 한 번만 필요)"):
@@ -61,10 +69,12 @@ with st.expander("⚙️ 네이버 API 키 설정 (처음 한 번만 필요)"):
     """)
     naver_id = st.text_input("Client ID", value=st.session_state.naver_id, key="input_naver_id")
     naver_secret = st.text_input("Client Secret", value=st.session_state.naver_secret, type="password", key="input_naver_secret")
-    if st.button("저장"):
+    if st.button("💾 저장 (다음에도 자동 입력됨)"):
         st.session_state.naver_id = naver_id
         st.session_state.naver_secret = naver_secret
-        st.success("API 키가 저장되었습니다!")
+        set_key("naver_client_id", naver_id)
+        set_key("naver_client_secret", naver_secret)
+        st.success("✅ API 키가 저장되었습니다! 다음번에 자동으로 불러옵니다.")
 
 # ── 검색 영역 ──
 col_q, col_sort = st.columns([3, 1])

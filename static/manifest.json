@@ -1,0 +1,25 @@
+{
+  "name": "마이 유틸리티",
+  "short_name": "마이유틸",
+  "description": "일상에서 쓸 수 있는 다양한 도구 모음",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FAFAFA",
+  "theme_color": "#6C5CE7",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "/app/static/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/app/static/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
