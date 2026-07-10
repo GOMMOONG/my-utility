@@ -11,3 +11,4 @@ qrcode
 pyzbar
 pillow
 yt-dlp
+yt-dlp-ejs

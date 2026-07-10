@@ -36,7 +36,7 @@ def safe_filename(title):
     return re.sub(r'[\\/*?:"<>|]', "", title).strip() or "video"
 
 
-def friendly_error(e):
+def friendly_error(e, has_node):
     """yt-dlp 오류 메시지를 사용자가 이해하기 쉬운 한글 문구로 변환"""
     text = str(e)
     if "Unsupported URL" in text or "is not a valid URL" in text:
@@ -45,6 +45,8 @@ def friendly_error(e):
         return "비공개 영상이라 다운로드할 수 없어요."
     if "Sign in to confirm your age" in text or ("age" in text.lower() and "restrict" in text.lower()):
         return "연령 제한이 있는 영상이라 다운로드할 수 없어요."
+    if ("not available" in text or "This video is unavailable" in text) and not has_node:
+        return "유튜브의 새로운 봇 차단 때문에 실패했을 수 있어요 (실제로는 정상 영상일 수 있음). 서버에 Node.js 설정이 필요합니다."
     if "This video is unavailable" in text:
         return "삭제되었거나 볼 수 없는 영상이에요."
     if "getaddrinfo failed" in text or "Failed to resolve" in text or "NewConnectionError" in text:
@@ -53,16 +55,21 @@ def friendly_error(e):
 
 
 has_ffmpeg = shutil.which("ffmpeg") is not None
+has_node = shutil.which("node") is not None
 if has_ffmpeg:
     st.caption("🎬 ffmpeg 사용 가능 - 고화질로 받을 수 있어요")
 else:
     st.caption("⚠ ffmpeg 미설치 - 화질이 낮게 나올 수 있어요")
+if not has_node:
+    st.caption("⚠ Node.js 미설치 - 일부 유튜브 영상은 받지 못할 수 있어요")
 
 with st.expander("ℹ️ 안내 (지원 사이트 · 저작권 유의사항)"):
     st.markdown("""
     - 유튜브, 네이버TV, 인스타그램 등 대부분의 동영상 사이트 링크를 지원해요.
     - 한 번에 영상 1개만 받을 수 있어요 (재생목록 전체 다운로드는 지원하지 않아요).
     - 서버 자원 보호를 위해 **30분이 넘는 영상은 받을 수 없어요.**
+    - 유튜브의 새로운 봇 차단 기술 때문에 가끔 정상 영상인데도 오류가 날 수 있어요.
+      이 경우 서버에 Node.js 설정이 필요합니다(운영자 확인 필요).
     - 본인이 만든 영상이거나 다운로드가 허용된 영상만 저장해주세요.
       저작권이 있는 콘텐츠를 허락 없이 다운로드·배포하는 것은 안 됩니다.
     """)
@@ -84,6 +91,8 @@ if st.button("⬇ 다운로드 준비", type="primary", use_container_width=True
         try:
             with st.spinner("영상 정보를 확인하는 중..."):
                 probe_opts = {"quiet": True, "no_warnings": True, "skip_download": True}
+                if has_node:
+                    probe_opts["js_runtimes"] = {"node": {}}
                 with yt_dlp.YoutubeDL(probe_opts) as ydl:
                     info = ydl.extract_info(url, download=False)
 
@@ -101,6 +110,8 @@ if st.button("⬇ 다운로드 준비", type="primary", use_container_width=True
                         "quiet": True,
                         "no_warnings": True,
                     }
+                    if has_node:
+                        ydl_opts["js_runtimes"] = {"node": {}}
                     with st.spinner("다운로드하는 중... 영상 길이에 따라 시간이 걸릴 수 있어요"):
                         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                             result = ydl.extract_info(url, download=True)
@@ -118,7 +129,7 @@ if st.button("⬇ 다운로드 준비", type="primary", use_container_width=True
                 finally:
                     shutil.rmtree(tmp_dir, ignore_errors=True)
         except Exception as e:
-            st.error(friendly_error(e))
+            st.error(friendly_error(e, has_node))
 
 if st.session_state.video_bytes:
     st.success("✅ 준비 완료! 아래 버튼으로 내 기기에 저장하세요.")
