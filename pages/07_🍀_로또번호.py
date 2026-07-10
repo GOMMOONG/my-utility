@@ -1,11 +1,17 @@
 ﻿import streamlit as st
-import urllib.request
+import requests
 import json
 import random
 from collections import Counter
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from style import apply_common_style, show_page_header, check_password
+
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Accept": "application/json, text/javascript, */*; q=0.01",
+    "Referer": "https://www.dhlottery.co.kr/",
+}
 
 st.set_page_config(page_title="로또번호 - 마이 유틸리티", page_icon="🍀", layout="centered")
 apply_common_style()

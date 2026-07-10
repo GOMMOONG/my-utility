@@ -7,3 +7,7 @@ openpyxl
 anthropic
 folium
 streamlit-folium
+qrcode
+pyzbar
+pillow
+yt-dlp
