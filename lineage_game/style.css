@@ -1,0 +1,210 @@
+/* 리니지st 게임 화면 스타일 (CSS = 화면 디자인을 정하는 코드) */
+
+* {
+  box-sizing: border-box;
+  font-family: "Malgun Gothic", "맑은 고딕", sans-serif;
+}
+
+body {
+  margin: 0;
+  background: #1b1b28;
+}
+
+#game-wrap {
+  width: 800px;
+  margin: 0 auto;
+  user-select: none; /* 클릭할 때 글자가 파랗게 선택되는 것을 막음 */
+}
+
+/* ── 상단 상태 표시줄 ── */
+#statPanel {
+  background: #2b2b3d;
+  border: 2px solid #4a4a63;
+  border-radius: 8px 8px 0 0;
+  padding: 8px 12px;
+}
+
+.stat-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #f0f0f5;
+  font-size: 14px;
+  flex-wrap: wrap;
+}
+
+#statLevel {
+  font-weight: bold;
+  color: #ffd76a;
+  min-width: 44px;
+}
+
+.bar-outer {
+  position: relative;
+  width: 160px;
+  height: 18px;
+  background: #14141f;
+  border: 1px solid #55556f;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.bar-inner {
+  height: 100%;
+  width: 0%;
+  transition: width 0.2s ease-out;
+}
+
+.hp-bar { background: linear-gradient(90deg, #e04848, #ff7a7a); }
+.exp-bar { background: linear-gradient(90deg, #4a8bdc, #7ab6ff); }
+
+.bar-text {
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  line-height: 18px;
+  text-align: center;
+  font-size: 11px;
+  color: #fff;
+  text-shadow: 1px 1px 1px #000;
+}
+
+#statGold {
+  color: #ffe27a;
+  font-weight: bold;
+}
+
+#invBtn, #resetBtn {
+  margin-left: auto;
+  background: #3a3a52;
+  color: #ddd;
+  border: 1px solid #55556f;
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 12px;
+}
+#invBtn:hover, #resetBtn:hover { background: #4a4a68; }
+#resetBtn { margin-left: 0; }
+
+/* ── 게임 캔버스 (실제 캐릭터가 움직이는 화면) ── */
+#canvasArea {
+  position: relative; /* 인벤토리 창을 이 안에 딱 맞게 겹쳐 보여주기 위함 */
+}
+
+#gameCanvas {
+  display: block;
+  background: #274623;
+  border-left: 2px solid #4a4a63;
+  border-right: 2px solid #4a4a63;
+  cursor: crosshair;
+}
+
+/* ── 인벤토리 창 (캔버스 위에 겹쳐서 나타남) ── */
+#inventoryPanel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 800px;
+  height: 500px;
+  background: rgba(20, 20, 30, 0.95);
+  border-left: 2px solid #55556f;
+  border-right: 2px solid #55556f;
+  color: #f0f0f5;
+  overflow-y: auto;
+}
+#inventoryPanel.hidden { display: none; }
+
+#invHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid #4a4a63;
+  font-weight: bold;
+}
+
+#invCloseBtn {
+  background: #3a3a52;
+  color: #ddd;
+  border: 1px solid #55556f;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 3px 8px;
+}
+#invCloseBtn:hover { background: #4a4a68; }
+
+#equipSlots {
+  display: flex;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #4a4a63;
+}
+
+.equip-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 70px;
+  padding: 8px;
+  background: #24243a;
+  border: 1px solid #4a4a63;
+  border-radius: 6px;
+  font-size: 11px;
+  color: #b8b8c8;
+  cursor: pointer;
+}
+.equip-slot .equip-icon { font-size: 22px; }
+
+#inventoryGrid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  padding: 14px;
+}
+
+.inv-cell {
+  position: relative;
+  height: 66px;
+  background: #24243a;
+  border: 1px solid #4a4a63;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 10px;
+  text-align: center;
+  padding: 4px;
+}
+.inv-cell:hover { background: #32324a; }
+.inv-cell.inv-empty { cursor: default; }
+.inv-cell.inv-empty:hover { background: #24243a; }
+
+.inv-icon { font-size: 22px; }
+.inv-name { color: #b8b8c8; margin-top: 2px; }
+.inv-count {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  font-size: 11px;
+  color: #ffd76a;
+}
+
+/* ── 하단 전투 로그 ── */
+#logBox {
+  height: 110px;
+  overflow-y: auto;
+  background: #101018;
+  border: 2px solid #4a4a63;
+  border-radius: 0 0 8px 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: #b8b8c8;
+  line-height: 1.5;
+}
+
+.log-levelup { color: #ffd76a; font-weight: bold; }
+.log-damage { color: #ff9d9d; }
+.log-gain { color: #9dffa0; }
