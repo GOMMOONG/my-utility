@@ -120,9 +120,13 @@ def rows_to_table(rows):
     raw = pd.DataFrame(rows).fillna("").astype(str)
     if raw.empty:
         return raw
+    # 열 제목 줄 찾기: '번호' 같은 단어가 있고, 칸이 2개 이상 채워진 줄
+    # (맨 위 "2026년 설비번호 대장" 같은 제목 줄은 보통 칸이 하나뿐이라 건너뜀)
     header_row = 0
     for i in range(min(20, len(raw))):
-        if any(any(k in str(v) for k in 제목_키워드) for v in raw.iloc[i].tolist()):
+        values = [str(v).strip() for v in raw.iloc[i].tolist()]
+        filled = sum(1 for v in values if v)
+        if filled >= 2 and any(any(k in v for k in 제목_키워드) for v in values):
             header_row = i
             break
     names = []
@@ -301,6 +305,15 @@ def check_candidates(job, candidates, source):
             job["checked"][match] = {"시각": now_text(), "방법": source}
             save_job(job)
             return {"status": "ok", "id": match}
+    # 비교 중인 열에 없으면, 다른 열에 같은 번호가 있는지 찾아봄 (열을 잘못 골랐을 때 알려주기 위함)
+    for cand in candidates:
+        target = normalize_id(cand)
+        for ci, col in enumerate(job["columns"]):
+            if col == job["id_col"] or not target:
+                continue
+            if any(normalize_id(r[ci]) == target for r in job["rows"]):
+                return {"status": "other_col", "id": cand, "col": col, "source": source}
+
     entry = {"번호": candidates[0], "출처": source, "시각": now_text()}
     job["unknown"].append(entry)
     save_job(job)
@@ -530,6 +543,15 @@ if last:
         examples = ", ".join(ledger_ids(job)[:3])
         st.caption(f"지금 비교 중인 열: **{job['id_col']}** (예: {examples}) — "
                    "열이 잘못됐다면 맨 아래 '⚙️ 자산번호 열 바꾸기'에서 바꿔주세요.")
+    elif status == "other_col":
+        # 번호는 대장에 있는데, 지금 비교 중인 열이 아닌 다른 열에 있는 경우
+        st.warning(f"🔎 **{last['id']}** 는 대장에 있어요. 그런데 지금 비교 중인 **'{job['id_col']}'** 열이 아니라 "
+                   f"**'{last['col']}'** 열에 있어요.")
+        if st.button(f"✅ '{last['col']}' 열로 바꾸고 있음 표시", width="stretch", type="primary"):
+            job["id_col"] = last["col"]
+            save_job(job)
+            st.session_state.ai_last = check_candidates(job, [last["id"]], last["source"])
+            st.rerun()
     elif status == "not_found":
         st.warning("⚠ 사진에서 자산번호를 읽지 못했어요. 라벨에 더 가까이, 밝은 곳에서 다시 찍어주세요.")
     elif status == "error":
