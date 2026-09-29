@@ -20,6 +20,8 @@ import re
 import json
 import base64
 import hashlib
+import difflib
+import unicodedata
 from io import BytesIO
 from datetime import datetime, timedelta, timezone
 
@@ -62,7 +64,8 @@ VISION_PROMPT = """이 사진은 회사 자산(비품·장비 등)에 붙어 있
 - 회사 이름, 전화번호, 날짜처럼 자산번호가 아닌 것은 빼주세요.
 - 자산번호로 보이는 것이 전혀 없거나 읽을 수 없으면 NOT_FOUND 한 단어만 적어주세요."""
 
-제목_키워드 = ["자산번호", "일련번호", "자산코드", "관리번호", "번호"]
+# 자산번호 열을 자동으로 고를 때 쓰는 단어 (앞에 있는 단어일수록 먼저 고름)
+제목_키워드 = ["자산번호", "설비번호", "장비번호", "일련번호", "자산코드", "관리번호", "번호"]
 
 # ── 세션 상태(이 화면에서만 쓰는 임시 기억) 초기화 ──────────
 st.session_state.setdefault("ai_job_id", None)       # 지금 진행 중인 실사 기록 이름
@@ -164,20 +167,60 @@ def read_ledger_file(file_bytes, file_name):
 
 
 def normalize_id(s):
-    """대소문자, 띄어쓰기, 하이픈(-), 밑줄(_), 점(.)을 무시하고 비교하기 위한 변환"""
-    return re.sub(r"[\s\-_.]", "", str(s).upper())
+    """비교용 변환: 전각 글자(ＡＢ１)는 보통 글자로 바꾸고, 대문자로 통일한 뒤
+    글자·숫자 말고는 모두 뺍니다. (띄어쓰기, 각종 하이픈 -–‐, 점, 슬래시 등 무시)"""
+    s = unicodedata.normalize("NFKC", str(s)).upper()
+    return re.sub(r"[^0-9A-Z가-힣]", "", s)
+
+
+# AI가 헷갈리기 쉬운 비슷한 모양의 글자 (O↔0, I·L↔1, S↔5, B↔8, Z↔2)
+헷갈리는_글자 = str.maketrans({"O": "0", "Q": "0", "I": "1", "L": "1", "S": "5", "B": "8", "Z": "2"})
+
+
+def loose_id(s):
+    """더 너그러운 비교용 변환: 비슷한 모양 글자를 같게 보고, 맨 앞의 0도 무시합니다."""
+    return normalize_id(s).translate(헷갈리는_글자).lstrip("0")
+
+
+def ledger_ids(job):
+    idx = job["columns"].index(job["id_col"])
+    return [r[idx] for r in job["rows"] if r[idx]]
 
 
 def find_match(job, candidate):
-    """대장에서 번호를 찾습니다. 똑같은 게 없으면 띄어쓰기·하이픈 등을 무시하고 한 번 더 찾습니다."""
+    """대장에서 번호를 찾습니다. 아래 순서로 점점 너그럽게 찾고, 딱 하나만 맞을 때만 인정합니다.
+    1) 완전히 같은 번호
+    2) 띄어쓰기·하이픈·대소문자·전각 글자 차이 무시
+    3) 비슷한 모양 글자(O/0, I/1 등)와 앞자리 0 차이 무시
+    4) 라벨에 앞뒤로 글자가 더 붙은 경우 (예: 라벨 KR-EQ-001 ↔ 대장 EQ-001)"""
     candidate = candidate.strip()
-    idx = job["columns"].index(job["id_col"])
-    ids = [r[idx] for r in job["rows"]]
+    ids = ledger_ids(job)
     if candidate in ids:
         return candidate
-    target = normalize_id(candidate)
-    hits = {v for v in ids if v and normalize_id(v) == target}
-    return hits.pop() if target and len(hits) == 1 else None
+    for convert in (normalize_id, loose_id):
+        target = convert(candidate)
+        hits = {v for v in ids if target and convert(v) == target}
+        if len(hits) == 1:
+            return hits.pop()
+    target = loose_id(candidate)
+    hits = {v for v in ids if len(loose_id(v)) >= 4 and loose_id(v) in target}
+    if len(hits) == 1:
+        return hits.pop()
+    return None
+
+
+def similar_ids(job, candidates, n=3):
+    """대장에서 AI가 읽은 번호와 가장 비슷한 번호를 최대 n개 찾습니다. (눌러서 바로 확인하도록 보여줌)"""
+    ids = ledger_ids(job)
+    by_loose = {}
+    for v in ids:
+        by_loose.setdefault(loose_id(v), v)
+    found = []
+    for cand in candidates:
+        for key in difflib.get_close_matches(loose_id(cand), list(by_loose.keys()), n=n, cutoff=0.5):
+            if by_loose[key] not in found:
+                found.append(by_loose[key])
+    return found[:n]
 
 
 def row_of(job, asset_id):
@@ -258,9 +301,22 @@ def check_candidates(job, candidates, source):
             job["checked"][match] = {"시각": now_text(), "방법": source}
             save_job(job)
             return {"status": "ok", "id": match}
-    job["unknown"].append({"번호": candidates[0], "출처": source, "시각": now_text()})
+    entry = {"번호": candidates[0], "출처": source, "시각": now_text()}
+    job["unknown"].append(entry)
     save_job(job)
-    return {"status": "unknown", "id": candidates[0], "others": candidates[1:]}
+    return {"status": "unknown", "id": candidates[0], "others": candidates[1:], "entry": entry,
+            "source": source, "similar": similar_ids(job, candidates)}
+
+
+def confirm_similar(job, last, asset_id):
+    """'대장에 없는 번호'로 기록된 것을 취소하고, 사람이 고른 비슷한 번호를 '있음'으로 표시합니다."""
+    if last.get("entry") in job["unknown"]:
+        job["unknown"].remove(last["entry"])
+    already = asset_id in job["checked"]
+    if not already:
+        job["checked"][asset_id] = {"시각": now_text(), "방법": f"{last['source']} (비슷한 번호 선택)"}
+    save_job(job)
+    return {"status": "already" if already else "ok", "id": asset_id}
 
 
 # ══════════════════════════════════════════════════════════════
@@ -459,7 +515,21 @@ if last:
                     unsafe_allow_html=True)
         if last.get("others"):
             st.caption("AI가 읽은 다른 후보: " + ", ".join(last["others"]))
-        st.caption("AI가 잘못 읽었다면 아래 '번호 직접 입력'에 올바른 번호를 넣어주세요. (이 번호는 '대장에 없는 번호'로 기록돼요)")
+
+        # 대장에서 비슷한 번호를 버튼으로 보여줘서, 맞으면 눌러서 바로 확인
+        if last.get("similar"):
+            st.markdown("**혹시 이 번호인가요?** 맞으면 눌러주세요.")
+            for i, sim in enumerate(last["similar"]):
+                info = row_of(job, sim)
+                extra = " · ".join(v for k, v in info.items() if k != job["id_col"] and v)[:40]
+                if st.button(f"✅ {sim}  {extra}", key=f"sim_{i}_{sim}", width="stretch"):
+                    st.session_state.ai_last = confirm_similar(job, last, sim)
+                    st.rerun()
+
+        # 열을 잘못 골랐는지 바로 알 수 있도록, 지금 비교 중인 열과 번호 예시를 보여줌
+        examples = ", ".join(ledger_ids(job)[:3])
+        st.caption(f"지금 비교 중인 열: **{job['id_col']}** (예: {examples}) — "
+                   "열이 잘못됐다면 맨 아래 '⚙️ 자산번호 열 바꾸기'에서 바꿔주세요.")
     elif status == "not_found":
         st.warning("⚠ 사진에서 자산번호를 읽지 못했어요. 라벨에 더 가까이, 밝은 곳에서 다시 찍어주세요.")
     elif status == "error":
