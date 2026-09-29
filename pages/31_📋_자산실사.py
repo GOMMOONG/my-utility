@@ -21,6 +21,7 @@ import json
 import base64
 import hashlib
 import difflib
+import itertools
 import unicodedata
 from io import BytesIO
 from datetime import datetime, timedelta, timezone
@@ -61,6 +62,7 @@ VISION_PROMPT = """이 사진은 회사 자산(비품·장비 등)에 붙어 있
 규칙:
 - 자산번호로 보이는 코드를 한 줄에 하나씩, 가능성이 높은 것부터 적어주세요. (최대 5개)
 - 글자는 사진에 보이는 그대로 적고, 설명·따옴표·번호 매기기는 붙이지 마세요.
+- 같은 숫자가 여러 개 이어진 부분(예: 00000)은 한 글자씩 세어서 개수를 정확히 적어주세요.
 - 회사 이름, 전화번호, 날짜처럼 자산번호가 아닌 것은 빼주세요.
 - 자산번호로 보이는 것이 전혀 없거나 읽을 수 없으면 NOT_FOUND 한 단어만 적어주세요."""
 
@@ -191,12 +193,27 @@ def ledger_ids(job):
     return [r[idx] for r in job["rows"] if r[idx]]
 
 
+def repeat_count_off_by_one(a, b):
+    """두 번호가 '이어진 같은 글자의 개수'만 딱 한 군데, 하나 차이 나는지 확인합니다.
+    예) CK918230500002 ↔ CK9182305000002 (0이 4개 ↔ 5개) → 같다고 봄
+        EQ-002 ↔ EQ-003 (글자 자체가 다름) → 다르다고 봄"""
+    if not a or not b or a == b:
+        return False
+    runs_a = [(ch, len(list(g))) for ch, g in itertools.groupby(a)]   # 예: 'A000B' → A1, 03, B1
+    runs_b = [(ch, len(list(g))) for ch, g in itertools.groupby(b)]
+    if [ch for ch, _ in runs_a] != [ch for ch, _ in runs_b]:
+        return False
+    diffs = [abs(na - nb) for (_, na), (_, nb) in zip(runs_a, runs_b) if na != nb]
+    return diffs == [1]
+
+
 def find_match(job, candidate):
     """대장에서 번호를 찾습니다. 아래 순서로 점점 너그럽게 찾고, 딱 하나만 맞을 때만 인정합니다.
     1) 완전히 같은 번호
     2) 띄어쓰기·하이픈·대소문자·전각 글자 차이 무시
     3) 비슷한 모양 글자(O/0, I/1 등)와 앞자리 0 차이 무시
-    4) 라벨에 앞뒤로 글자가 더 붙은 경우 (예: 라벨 KR-EQ-001 ↔ 대장 EQ-001)"""
+    4) 이어진 같은 글자의 개수만 하나 차이 (예: AI가 0000을 000으로 읽은 경우)
+    5) 라벨에 앞뒤로 글자가 더 붙은 경우 (예: 라벨 KR-EQ-001 ↔ 대장 EQ-001)"""
     candidate = candidate.strip()
     ids = ledger_ids(job)
     if candidate in ids:
@@ -206,6 +223,9 @@ def find_match(job, candidate):
         hits = {v for v in ids if target and convert(v) == target}
         if len(hits) == 1:
             return hits.pop()
+    hits = {v for v in ids if repeat_count_off_by_one(normalize_id(candidate), normalize_id(v))}
+    if len(hits) == 1:
+        return hits.pop()
     target = loose_id(candidate)
     hits = {v for v in ids if len(loose_id(v)) >= 4 and loose_id(v) in target}
     if len(hits) == 1:
@@ -255,7 +275,7 @@ def read_asset_numbers(api_key, b64_image):
         response = client.beta.messages.create(
             model=MODEL,
             max_tokens=2000,
-            output_config={"effort": "low"},     # 단순한 글자 읽기라 가볍게 처리 (비용 절약)
+            output_config={"effort": "medium"},  # 긴 번호도 한 글자씩 꼼꼼히 읽도록 중간 수준으로 처리
             betas=["server-side-fallback-2026-07-01"],
             fallbacks="default",                 # AI가 요청을 거절하면 다른 모델이 대신 처리
             messages=[{
@@ -304,7 +324,7 @@ def check_candidates(job, candidates, source):
                 return {"status": "already", "id": match}
             job["checked"][match] = {"시각": now_text(), "방법": source}
             save_job(job)
-            return {"status": "ok", "id": match}
+            return {"status": "ok", "id": match, "read": cand}
     # 비교 중인 열에 없으면, 다른 열에 같은 번호가 있는지 찾아봄 (열을 잘못 골랐을 때 알려주기 위함)
     for cand in candidates:
         target = normalize_id(cand)
@@ -519,6 +539,10 @@ if last:
                     f"font-size:1.5em;font-weight:700;color:#0F7B0F'>✅ 있음<br>{last['id']}</div>",
                     unsafe_allow_html=True)
         show_row_details(last["id"])
+        # AI가 읽은 번호와 대장 번호가 조금 달라서 보정해서 찾은 경우 알려줌
+        if last.get("read") and normalize_id(last["read"]) != normalize_id(last["id"]):
+            st.caption(f"ℹ AI는 **{last['read']}** 로 읽었지만, 비슷한 모양 글자나 이어진 글자 개수만 달라서 "
+                       f"**{last['id']}** 로 확인했어요. 틀렸다면 아래 '확인된 자산'에서 취소해주세요.")
     elif status == "already":
         st.info(f"🔁 **{last['id']}** 는 이미 확인된 자산이에요.")
         show_row_details(last["id"])
