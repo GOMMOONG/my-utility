@@ -313,6 +313,25 @@ def read_asset_numbers(api_key, b64_image):
     return candidates[:5], None
 
 
+def extract_candidates(text):
+    """붙여넣은 글자에서 자산번호로 보이는 부분을 골라냅니다.
+    휴대폰 글자 인식으로 복사하면 '자산번호: CK918…', 회사 이름, 전화번호 등이 섞여 올 수 있어서,
+    숫자가 들어간 4글자 이상 덩어리를 긴 것부터 후보로 삼습니다."""
+    text = unicodedata.normalize("NFKC", text).strip()
+    if not text:
+        return []
+    tokens = re.split(r"[\s,;:/|()\[\]]+", text)
+    cands = [t.strip(".-_'\"") for t in tokens if re.search(r"\d", t) and len(normalize_id(t)) >= 4]
+    cands.sort(key=lambda t: -len(normalize_id(t)))     # 자산번호는 보통 가장 긴 덩어리
+    if re.search(r"\d", text):
+        cands.append(text)                               # 번호가 띄어쓰기로 쪼개져 들어온 경우 대비
+    result = []
+    for c in cands:
+        if c and c not in result:
+            result.append(c)
+    return result[:6]
+
+
 def check_candidates(job, candidates, source):
     """번호 후보들을 대장과 대조해서 기록하고, 화면에 보여줄 결과를 돌려줍니다."""
     if not candidates:
@@ -479,21 +498,46 @@ st.progress(done / total if total else 0)
 # ══════════════════════════════════════════════════════════════
 # ② 촬영 → 바로 인식
 # ══════════════════════════════════════════════════════════════
-st.markdown("### ② 자산번호 촬영")
+st.markdown("### ② 자산번호 확인")
 
-if not st.session_state.ai_api_key:
-    st.warning("사진 인식을 쓰려면 맨 아래 **🔑 API 키 설정**에서 Claude API 키를 입력해주세요. "
-               "(키 없이도 '번호 직접 입력'은 쓸 수 있어요)")
+# 기본은 무료 방식(휴대폰 글자 인식으로 번호 붙여넣기), AI 사진 인식은 API 키가 있을 때 선택
+input_mode = st.radio("확인 방식", ["✏️ 번호 스캔·붙여넣기 (무료)", "📷 AI 사진 인식 (API 키 필요)"],
+                      horizontal=True, label_visibility="collapsed", key="ai_input_mode")
+photo = None
 
-mode = st.radio("촬영 방식", ["📱 휴대폰 카메라 (고화질·추천)", "🎥 화면 안에서 찍기"],
-                horizontal=True, label_visibility="collapsed")
-photo_key = f"ai_photo_{st.session_state.ai_photo_key}"
-if mode.startswith("📱"):
-    st.caption("아래 **Browse files / 파일 선택**을 누르고 **'사진 찍기(카메라)'**를 고르세요. 찍자마자 자동으로 확인돼요.")
-    photo = st.file_uploader("📷 자산번호 라벨 촬영", type=["jpg", "jpeg", "png", "heic", "heif", "webp"],
-                             key=photo_key, label_visibility="collapsed")
+if input_mode.startswith("✏️"):
+    with st.expander("📱 휴대폰으로 번호를 스캔하는 방법 (처음 한 번 읽어보세요)"):
+        st.markdown(
+            "**가장 편한 방법: 키보드의 '텍스트 스캔'** (카메라로 비추면 번호가 입력칸에 바로 들어가요)\n"
+            "- **아이폰**: 아래 입력칸을 한 번 누른 뒤 다시 누르면 나오는 메뉴에서 **'텍스트 스캔'** "
+            "→ 라벨 번호를 비추고 **'입력'**\n"
+            "- **갤럭시(삼성 키보드)**: 입력칸을 누르고 키보드 위쪽 도구 막대의 **⋯ → '텍스트 추출'** "
+            "→ 라벨을 찍고 번호를 골라 **'입력'**\n\n"
+            "**다른 방법: 카메라 앱에서 복사 → 붙여넣기**\n"
+            "- **아이폰**: 카메라로 라벨을 비추고 오른쪽 아래 **텍스트 인식 아이콘** → 번호를 길게 눌러 **'복사'**\n"
+            "- **갤럭시**: 카메라로 라벨을 비추면 나오는 **'T' 아이콘(텍스트 스캔)** → 번호를 골라 **'복사'**\n"
+            "- 이 화면으로 돌아와 입력칸을 길게 눌러 **'붙여넣기'** → **확인**\n\n"
+            "※ 휴대폰 기종·버전에 따라 메뉴 이름이 조금 다를 수 있어요. "
+            "회사 이름 등 다른 글자가 함께 들어와도 번호만 골라서 대조하니 그대로 확인을 누르세요."
+        )
+    with st.form("paste_form", clear_on_submit=True):
+        pasted = st.text_input("자산번호 (스캔하거나 붙여넣기)", placeholder="예: CK9182305000002")
+        if st.form_submit_button("✅ 확인", width="stretch", type="primary") and pasted.strip():
+            st.session_state.ai_last = check_candidates(job, extract_candidates(pasted), "스캔·입력")
+            st.rerun()
 else:
-    photo = st.camera_input("📷 자산번호 라벨을 화면 가운데에 맞추고 찍어주세요", key=photo_key)
+    if not st.session_state.ai_api_key:
+        st.warning("AI 사진 인식을 쓰려면 맨 아래 **🔑 API 키 설정**에서 Claude API 키를 입력해주세요. "
+                   "(키가 없으면 '번호 스캔·붙여넣기'를 이용해주세요)")
+    mode = st.radio("촬영 방식", ["📱 휴대폰 카메라 (고화질·추천)", "🎥 화면 안에서 찍기"],
+                    horizontal=True, label_visibility="collapsed")
+    photo_key = f"ai_photo_{st.session_state.ai_photo_key}"
+    if mode.startswith("📱"):
+        st.caption("아래 **Browse files / 파일 선택**을 누르고 **'사진 찍기(카메라)'**를 고르세요. 찍자마자 자동으로 확인돼요.")
+        photo = st.file_uploader("📷 자산번호 라벨 촬영", type=["jpg", "jpeg", "png", "heic", "heif", "webp"],
+                                 key=photo_key, label_visibility="collapsed")
+    else:
+        photo = st.camera_input("📷 자산번호 라벨을 화면 가운데에 맞추고 찍어주세요", key=photo_key)
 
 if photo is not None and st.session_state.ai_api_key:
     photo_bytes = photo.getvalue()
@@ -541,7 +585,7 @@ if last:
         show_row_details(last["id"])
         # AI가 읽은 번호와 대장 번호가 조금 달라서 보정해서 찾은 경우 알려줌
         if last.get("read") and normalize_id(last["read"]) != normalize_id(last["id"]):
-            st.caption(f"ℹ AI는 **{last['read']}** 로 읽었지만, 비슷한 모양 글자나 이어진 글자 개수만 달라서 "
+            st.caption(f"ℹ 읽은 번호는 **{last['read']}** 였지만, 비슷한 모양 글자나 이어진 글자 개수만 달라서 "
                        f"**{last['id']}** 로 확인했어요. 틀렸다면 아래 '확인된 자산'에서 취소해주세요.")
     elif status == "already":
         st.info(f"🔁 **{last['id']}** 는 이미 확인된 자산이에요.")
@@ -551,7 +595,10 @@ if last:
                     f"font-size:1.3em;font-weight:700;color:#C42B1C'>❌ 대장에 없는 번호<br>{last['id']}</div>",
                     unsafe_allow_html=True)
         if last.get("others"):
-            st.caption("AI가 읽은 다른 후보: " + ", ".join(last["others"]))
+            # 붙여넣은 글자 전체(마지막 후보)는 너무 길 수 있어서 짧은 후보만 보여줌
+            others = [o for o in last["others"] if len(o) <= 30]
+            if others:
+                st.caption("함께 읽은 다른 후보: " + ", ".join(others))
 
         # 대장에서 비슷한 번호를 버튼으로 보여줘서, 맞으면 눌러서 바로 확인
         if last.get("similar"):
@@ -577,20 +624,21 @@ if last:
             st.session_state.ai_last = check_candidates(job, [last["id"]], last["source"])
             st.rerun()
     elif status == "not_found":
-        st.warning("⚠ 사진에서 자산번호를 읽지 못했어요. 라벨에 더 가까이, 밝은 곳에서 다시 찍어주세요.")
+        st.warning("⚠ 자산번호를 찾지 못했어요. 라벨에 더 가까이, 밝은 곳에서 다시 스캔(촬영)해주세요.")
     elif status == "error":
         st.error(last["message"])
     if last.get("thumb"):
         with st.expander("방금 찍은 사진 보기"):
             st.image(last["thumb"])
 
-# 번호 직접 입력
-with st.expander("✏️ 번호 직접 입력 (사진 없이 확인)", expanded=(last or {}).get("status") in ("unknown", "not_found")):
-    with st.form("manual_form", clear_on_submit=True):
-        manual = st.text_input("자산번호", placeholder="예: IT-2023-0015")
-        if st.form_submit_button("확인", width="stretch") and manual.strip():
-            st.session_state.ai_last = check_candidates(job, [manual.strip()], "직접 입력")
-            st.rerun()
+# AI 사진 인식 방식일 때만: 번호 직접 입력 칸 (붙여넣기 방식은 위에 이미 입력칸이 있음)
+if not input_mode.startswith("✏️"):
+    with st.expander("✏️ 번호 직접 입력 (사진 없이 확인)", expanded=(last or {}).get("status") in ("unknown", "not_found")):
+        with st.form("manual_form", clear_on_submit=True):
+            manual = st.text_input("자산번호", placeholder="예: IT-2023-0015")
+            if st.form_submit_button("확인", width="stretch") and manual.strip():
+                st.session_state.ai_last = check_candidates(job, extract_candidates(manual), "직접 입력")
+                st.rerun()
 
 st.divider()
 
