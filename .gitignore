@@ -2,3 +2,6 @@ __pycache__/
 *.pyc
 .streamlit/secrets.toml
 data/api_keys.json
+
+# 자산실사 진행 기록 (회사 자료라 GitHub에 올리지 않음)
+data/asset_inspection/
