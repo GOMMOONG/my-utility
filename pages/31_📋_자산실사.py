@@ -62,6 +62,7 @@ VISION_PROMPT = """이 사진은 회사 자산(비품·장비 등)에 붙어 있
 규칙:
 - 자산번호로 보이는 코드를 한 줄에 하나씩, 가능성이 높은 것부터 적어주세요. (최대 5개)
 - 글자는 사진에 보이는 그대로 적고, 설명·따옴표·번호 매기기는 붙이지 마세요.
+- 코드 앞에 'S/N:', 'SN', 'Serial No.', 'No.' 같은 머리글이 붙어 있으면 머리글은 빼고 그 뒤의 코드만 적어주세요. (예: S/N:KIT2301005 → KIT2301005)
 - 같은 숫자가 여러 개 이어진 부분(예: 00000)은 한 글자씩 세어서 개수를 정확히 적어주세요.
 - 회사 이름, 전화번호, 날짜처럼 자산번호가 아닌 것은 빼주세요.
 - 자산번호로 보이는 것이 전혀 없거나 읽을 수 없으면 NOT_FOUND 한 단어만 적어주세요."""
@@ -340,7 +341,23 @@ def repeat_count_off_by_one(a, b):
     return diffs == [1]
 
 
+def strip_label_prefix(s):
+    """번호 앞에 붙은 머리글을 뗍니다. 예) 'S/N:KIT2301005' → 'KIT2301005', 'No.A-12' → 'A-12'"""
+    s = unicodedata.normalize("NFKC", str(s)).strip()
+    return re.sub(r"^(S\s*/\s*N|SN|SERIAL\s*(NO|NUMBER)?\.?|NO\.|자산번호|관리번호)\s*[:#\-]?\s*", "", s, flags=re.I)
+
+
 def find_match(job, candidate):
+    """원래 번호로 먼저 찾고, 못 찾으면 'S/N:' 같은 머리글을 뗀 번호로 다시 찾습니다.
+    (원래 번호로 먼저 찾기 때문에, 대장 번호가 정말 SN으로 시작해도 문제없음)"""
+    match = find_match_one(job, candidate)
+    stripped = strip_label_prefix(candidate)
+    if match is None and stripped and stripped != candidate.strip():
+        match = find_match_one(job, stripped)
+    return match
+
+
+def find_match_one(job, candidate):
     """대장에서 번호를 찾습니다. 아래 순서로 점점 너그럽게 찾고, 딱 하나만 맞을 때만 인정합니다.
     1) 완전히 같은 번호
     2) 띄어쓰기·하이픈·대소문자·전각 글자 차이 무시
@@ -363,6 +380,12 @@ def find_match(job, candidate):
     hits = {v for v in ids if len(loose_id(v)) >= 4 and loose_id(v) in target}
     if len(hits) == 1:
         return hits.pop()
+    # 여러 개가 걸리면(예: KIT230100, KIT2301005) 가장 길게 일치하는 번호가 하나뿐일 때 그 번호로 인정
+    if hits:
+        longest = max(len(loose_id(v)) for v in hits)
+        best = [v for v in hits if len(loose_id(v)) == longest]
+        if len(best) == 1:
+            return best[0]
     return None
 
 
