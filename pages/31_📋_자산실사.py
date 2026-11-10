@@ -172,6 +172,139 @@ def read_ledger_file(file_bytes, file_name):
         return None, f"파일을 읽는 중 문제가 생겼어요: {e}"
 
 
+# ── PDF 자산대장 읽기 ─────────────────────────────────────────
+PDF_PROMPT = """이 PDF는 회사 자산대장(자산 목록 표)입니다. 표의 내용을 빠짐없이 그대로 옮겨 적어주세요.
+
+규칙:
+- 첫 줄은 열 제목(예: 자산번호, 자산명, 위치 등), 그 다음 줄부터 자산 한 개당 한 줄로 적어주세요.
+- 칸과 칸 사이는 탭(Tab) 문자 하나로 구분해주세요.
+- 페이지마다 반복되는 열 제목 줄, 페이지 번호, 표 바깥의 설명 글은 빼주세요.
+- 글자는 보이는 그대로 적고, 빈 칸은 비워두세요. 같은 숫자가 이어진 부분(예: 00000)은 개수를 정확히 세어주세요.
+- 설명, 따옴표, 코드블록(```) 없이 표 내용만 적어주세요."""
+
+
+def pdf_rows_to_table(rows):
+    """PDF에서 꺼낸 줄들을 표로 바꾸고, 페이지마다 반복되는 열 제목 줄은 지웁니다."""
+    df = rows_to_table(rows)
+    if df.empty:
+        return df
+    cols = list(df.columns)
+    need = max(2, len(cols) // 2)   # 열 제목과 절반 이상 같은 줄이면 '반복된 제목 줄'로 봄
+    is_header = df.apply(lambda r: sum(v == c for v, c in zip(r, cols)) >= need, axis=1)
+    return df[~is_header].reset_index(drop=True)
+
+
+@st.cache_data(show_spinner=False)
+def read_pdf_ledger(file_bytes):
+    """글자 PDF에서 표를 꺼냅니다 (무료).
+    반환값: ({"PDF": 표}, 오류메시지). 글자가 없는 스캔 PDF면 오류메시지 자리에 "SCAN"을 돌려줍니다."""
+    if file_bytes[:5] == b"SCDSA":
+        return None, "DRM"
+    try:
+        import pdfplumber
+    except ImportError:
+        return None, "PDF를 읽는 부품이 없어요. 터미널에서 `pip install pdfplumber`를 실행한 뒤 새로고침 해주세요."
+    try:
+        with pdfplumber.open(BytesIO(file_bytes)) as pdf:
+            if not any((page.extract_text() or "").strip() for page in pdf.pages):
+                return None, "SCAN"
+            rows = []
+            # 1차: 테두리 선이 그려진 표 찾기
+            for page in pdf.pages:
+                for table in page.extract_tables():
+                    for row in table:
+                        rows.append([(c or "").replace("\n", " ").strip() for c in row])
+            # 2차(테두리 없는 표): 줄마다 '두 칸 이상 띄어진 곳'을 칸 구분으로 봄
+            #   ("노트북 1"처럼 한 칸만 띄운 글자는 한 칸으로 유지)
+            if not rows:
+                for page in pdf.pages:
+                    for line in (page.extract_text(layout=True) or "").splitlines():
+                        cells = [c.strip() for c in re.split(r"\s{2,}", line.strip())]
+                        if len([c for c in cells if c]) >= 2:   # 제목·쪽 번호처럼 한 칸짜리 줄은 뺌
+                            rows.append(cells)
+    except Exception as e:
+        if "password" in str(e).lower() or "encrypt" in str(e).lower():
+            return None, "🔒 암호가 걸린 PDF라 읽을 수 없어요. 암호를 푼 PDF를 올려주세요."
+        return None, f"PDF 파일을 읽는 중 문제가 생겼어요: {e}"
+    if not rows:
+        return None, "PDF에서 표를 찾지 못했어요. 엑셀(.xlsx)로 저장한 파일이 있다면 그 파일을 올려주세요."
+    return {"PDF": pdf_rows_to_table(rows)}, None
+
+
+def read_pdf_ledger_ai(file_bytes, api_key):
+    """스캔 PDF를 Claude AI로 읽어서 표로 만듭니다. 반환값: ({"PDF": 표}, 오류메시지, 참고메시지)"""
+    try:
+        client = anthropic.Anthropic(api_key=api_key)
+        # 대장이 길면 답변도 길어서, 끊기지 않도록 조금씩 받아오는 방식(stream)으로 요청
+        with client.beta.messages.stream(
+            model=MODEL,
+            max_tokens=64000,
+            output_config={"effort": "medium"},
+            betas=["server-side-fallback-2026-07-01"],
+            fallbacks="default",
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "document", "source": {"type": "base64", "media_type": "application/pdf",
+                                                     "data": base64.standard_b64encode(file_bytes).decode("utf-8")}},
+                    {"type": "text", "text": PDF_PROMPT},
+                ],
+            }],
+        ) as stream:
+            response = stream.get_final_message()
+    except anthropic.AuthenticationError:
+        return None, "API 키가 올바르지 않아요. 키를 다시 확인해주세요.", None
+    except anthropic.RateLimitError:
+        return None, "요청이 너무 많아요. 잠시 후 다시 눌러주세요.", None
+    except anthropic.APIConnectionError:
+        return None, "인터넷 연결을 확인해주세요.", None
+    except anthropic.BadRequestError as e:
+        if "credit balance" in str(e).lower():
+            return None, "API 크레딧(잔액)이 부족해요. console.anthropic.com에서 충전해주세요.", None
+        return None, f"PDF가 너무 크거나(100쪽·32MB 초과) 읽을 수 없는 파일이에요. ({e})", None
+    except Exception as e:
+        return None, f"AI가 PDF를 읽는 중 오류가 발생했어요: {e}", None
+
+    text = "".join(b.text for b in response.content if b.type == "text")
+    rows = [line.split("\t") for line in text.splitlines()
+            if line.strip() and not line.strip().startswith("```")]
+    if len(rows) < 2:
+        return None, "AI가 PDF에서 자산 목록 표를 찾지 못했어요. 더 선명하게 스캔한 PDF로 다시 시도해주세요.", None
+    note = None
+    if response.stop_reason == "max_tokens":
+        note = "⚠ 대장이 너무 길어서 뒷부분이 빠졌을 수 있어요. 자산 개수를 꼭 확인해주세요."
+    return {"PDF": pdf_rows_to_table(rows)}, None, note
+
+
+def scan_pdf_section(file_bytes):
+    """스캔 PDF 안내 화면. 사용료가 들기 때문에 버튼을 누를 때만 AI로 읽고, 결과는 기억해둡니다.
+    반환값: ({"PDF": 표} 또는 None, 오류메시지)"""
+    memory = st.session_state.setdefault("ai_pdf_memory", {})
+    file_key = hashlib.md5(file_bytes).hexdigest()
+    if file_key in memory:                       # 이미 AI로 읽은 파일이면 다시 읽지 않음
+        return memory[file_key], None
+
+    st.info("📄 이 PDF는 종이를 스캔한(사진으로 된) 파일이라 글자를 바로 읽을 수 없어요.\n\n"
+            "**Claude AI로 표를 읽을 수 있어요.** (API 키 필요, 쪽수에 따라 사용료가 조금 들어요)")
+    if not st.session_state.ai_api_key:
+        typed = st.text_input("Claude API 키 (console.anthropic.com에서 발급)", type="password", key="ai_pdf_key")
+        if typed.strip():
+            st.session_state.ai_api_key = typed.strip()
+            set_key("anthropic_api_key", typed.strip())
+    if st.button("🤖 AI로 PDF 표 읽기", width="stretch", type="primary"):
+        if not st.session_state.ai_api_key:
+            return None, "API 키를 먼저 입력해주세요."
+        with st.spinner("AI가 PDF를 읽고 있어요... 쪽수가 많으면 1~3분 걸릴 수 있어요"):
+            sheets, error, note = read_pdf_ledger_ai(file_bytes, st.session_state.ai_api_key)
+        if error:
+            return None, error
+        if note:
+            st.warning(note)
+        memory[file_key] = sheets
+        return sheets, None
+    return None, None
+
+
 def normalize_id(s):
     """비교용 변환: 전각 글자(ＡＢ１)는 보통 글자로 바꾸고, 대문자로 통일한 뒤
     글자·숫자 말고는 모두 뺍니다. (띄어쓰기, 각종 하이픈 -–‐, 점, 슬래시 등 무시)"""
@@ -418,6 +551,17 @@ def build_result_excel(job):
 # ══════════════════════════════════════════════════════════════
 job = load_job(st.session_state.ai_job_id) if st.session_state.ai_job_id else None
 
+# ── API 키 준비 (파일 → Streamlit Secrets 순서로 찾기) ──
+# 스캔 PDF 대장을 AI로 읽을 때도 필요해서, 대장 준비 단계보다 먼저 불러옵니다.
+if "ai_api_key" not in st.session_state:
+    key = get_key("anthropic_api_key")
+    if not key:
+        try:
+            key = st.secrets.get("anthropic_api_key", "")
+        except Exception:
+            key = ""
+    st.session_state.ai_api_key = key
+
 if job is None:
     st.markdown("### ① 자산대장 준비")
 
@@ -433,17 +577,22 @@ if job is None:
             st.rerun()
         st.caption("또는 아래에서 새 자산대장 파일을 올려주세요.")
 
-    uploaded = st.file_uploader("자산대장 파일 올리기 (.xlsx 또는 .csv)", type=["xlsx", "xls", "csv"])
+    uploaded = st.file_uploader("자산대장 파일 올리기 (.xlsx, .csv 또는 .pdf)", type=["xlsx", "xls", "csv", "pdf"])
     if uploaded is not None:
         file_bytes = uploaded.getvalue()
-        sheets, error = read_ledger_file(file_bytes, uploaded.name)
+        if uploaded.name.lower().endswith(".pdf"):
+            sheets, error = read_pdf_ledger(file_bytes)
+            if error == "SCAN":                      # 스캔 PDF → AI로 읽기 안내
+                sheets, error = scan_pdf_section(file_bytes)
+        else:
+            sheets, error = read_ledger_file(file_bytes, uploaded.name)
         if error == "DRM":
             st.error("🔒 회사 보안(DRM)으로 암호화된 파일이라 여기서는 읽을 수 없어요.")
             st.info("회사 PC에서 보안을 해제한 파일을 올려주세요. "
                     "외부에 나가도 괜찮은 열(자산번호, 자산명, 위치 등)만 남겨두는 것을 권장해요.")
         elif error:
             st.error(error)
-        else:
+        elif sheets is not None:      # (스캔 PDF에서 아직 AI 버튼을 안 눌렀으면 sheets가 없음)
             sheet_names = [n for n, df in sheets.items() if not df.empty]
             if not sheet_names:
                 st.warning("파일에 자산 목록이 없어요.")
@@ -469,18 +618,6 @@ if job is None:
                     st.rerun()
     st.stop()
 
-
-# ══════════════════════════════════════════════════════════════
-# API 키 준비 (파일 → Streamlit Secrets 순서로 찾기)
-# ══════════════════════════════════════════════════════════════
-if "ai_api_key" not in st.session_state:
-    key = get_key("anthropic_api_key")
-    if not key:
-        try:
-            key = st.secrets.get("anthropic_api_key", "")
-        except Exception:
-            key = ""
-    st.session_state.ai_api_key = key
 
 id_idx = job["columns"].index(job["id_col"])
 all_ids = [r[id_idx] for r in job["rows"] if r[id_idx]]

@@ -10,5 +10,6 @@ streamlit-folium
 qrcode
 pyzbar
 pillow
+pdfplumber
 yt-dlp
 yt-dlp-ejs
